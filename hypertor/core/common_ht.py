@@ -1,0 +1,243 @@
+"""Configuration datastructures."""
+
+import dataclasses
+import enum
+import functools
+
+from typing import TYPE_CHECKING, Optional, Callable, Literal, Union
+
+import torch
+import torch.nn.functional as F
+
+if TYPE_CHECKING:
+    from hypertor.core.datasets import HTDataset
+
+
+@dataclasses.dataclass
+class DatasetInfo:
+    num_labels: int
+    num_samples_per_label: Optional[int]
+    transpose_images: bool = False
+
+
+@dataclasses.dataclass
+class DatasetConfig:
+    """Specification of the train or test dataset."""
+
+    # Dataset information
+    dataset_name: str
+    use_label_subset: Optional[list[int]] = None
+    ds_split: str = "train"
+    meta_dataset_split: str = "train"
+    data_dir: Optional[str] = None
+    ds: Optional["HTDataset"] = None
+    dataset_info: Optional[DatasetInfo] = None
+    per_label_augmentation: bool = False
+    cache_path: str = ""
+    balanced_batches: bool = False
+    shuffle_labels_seed: int = 0
+    # Number of unlabeled samples in the training batch (per label)
+    num_unlabeled_per_class: int = 0
+
+    # Data augmentation
+    rotation_probability: float = 0.0
+    smooth_probability: float = 0.5
+    contrast_probability: float = 0.5
+    resize_probability: float = 0.0
+    negate_probability: float = 0.0
+    roll_probability: float = 0.0
+    angle_range: float = 180.0
+    rotate_by_90: bool = False
+    apply_image_augmentations: bool = False
+    augment_individually: bool = False
+
+
+@dataclasses.dataclass
+class ModelConfig:
+    """Common model configuration."""
+
+    # Label parameters
+    num_labels: int = 4
+    embedding_dim: int = 8
+
+    # Samples and images
+    image_size: Optional[int] = 28
+    num_transformer_samples: int = 32
+    num_cnn_samples: int = 128
+
+    # CNN parameters
+    cnn_dropout_rate: float = 0.0
+    cnn_model_name: str = "3-layer"
+    use_decoder: bool = True
+    add_trainable_weights: bool = False
+    var_reg_weight: float = 0.0
+    cnn_activation: str = "relu"
+    default_num_channels: int = 16
+
+    # Common transformer parameters
+    transformer_activation: str = "softmax"
+    shared_fe_dropout: float = 0.0
+    fe_dropout: float = 0.0
+    transformer_nonlinearity: str = "relu"
+
+
+class WeightAllocation(enum.Enum):
+    """Type of the weight allocation by the Transformer.
+        e.g. For a kernel with size: [k_H, k_W, C_in, C_out] -> [3, 3, 2, 4]
+
+        1. Spatial
+          a) The Transformer outputs 9 embeddings (because of k_H*k_W -> 3*3):
+            E(0, 0), E(0, 1), ..., E(2, 2)
+          b) The length of each embedding is:
+            C_in * C_out = 2 * 4 = 8
+          c) Each embedding corresponds to:
+            E(i,j) → kernel[i, j, :, :]
+                |
+                V
+            kernel[0, 0, :, :] ← E(0, 0)
+            kernel[0, 1, :, :] ← E(0, 1)
+                ...
+            kernel[2, 2, :, :] ← E(2, 2)
+                |
+                V
+            ┌─────┬─────┬─────┐
+            │ E00 │ E01 │ E02 │
+            ├─────┼─────┼─────┤
+            │ E10 │ E11 │ E12 │
+            ├─────┼─────┼─────┤
+            │ E20 │ E21 │ E22 │
+            └─────┴─────┴─────┘
+
+        2. Output Channel
+          a) The Transformer outputs 4 embeddings (because C_out = 4)
+            E_0, E_1, E_2, E_3
+          b) The length of each embedding is:
+            length = k_H * k_W * C_in = 3 * 3 * 2 = 18
+          c) Each embedding corresponds to:
+            E_out → kernel[C_out, :, :, :]
+                |
+                V
+            kernel[0, :, :, :] ← E_0
+            kernel[1, :, :, :] ← E_1
+            kernel[2, :, :, :] ← E_2
+            kernel[3, :, :, :] ← E_3
+                |
+                V
+            Filter 0 ← E_0
+            Filter 1 ← E_1
+            Filter 2 ← E_2
+            Filter 3 ← E_3
+    """
+
+    SPATIAL = 1
+    OUTPUT_CHANNEL = 2
+
+
+@dataclasses.dataclass
+class LayerwiseModelConfig(ModelConfig):
+    """Layerwise model configuration."""
+
+    # -- Feature extractor parameters
+    feature_layers: int = 2
+    num_features: Optional[int] = None
+    nonlinear_feature: bool = False
+    shared_feature_extractor: str = ""
+    shared_input_dim: int = 3
+    shared_features_dim: int = 32
+    shared_feature_extractor_padding: str = "valid"
+    label_smoothing: float = 0.
+    number_of_trained_cnn_layers: int = 0
+    # By default, the logits feature extractor is identical to the convolutional
+    # layer feature extractor (typically, based on one or two convolutions applied
+    # to the previous activations).
+    logits_feature_extractor: str = ""
+    number_of_trained_resnet_blocks: int = 0
+    # -- Transformer parameters
+    query_key_dim_frac: float = 1.0
+    value_dim_frac: float = 1.0
+    internal_dim_frac: float = 1.0
+    num_layers: int = 3
+    heads: int = 1
+    kernel_size: int = 3
+    stride: int = 2
+    dropout_rate: float = 0.0
+    weight_allocation: WeightAllocation = WeightAllocation.SPATIAL
+    generate_bn: bool = False
+    generate_bias: bool = False
+    generate_last_layer_bias: bool = False
+    generator: str = "joint"
+    skip_last_nonlinearity: bool = False
+    l2_reg_weight: Optional[float] = None
+    shared_head_weight: float = 0.0
+
+    # -- Additional weight generation parameters
+
+    # If set, free variables (like BatchNorm beta and gamma) are not shared
+    # between the CNN generating the weights and CNN computing the final
+    # predictions.
+    separate_bn_vars: bool = False
+    train_heads: bool = False
+    max_prob_remove_unlabeled: float = 0
+    max_prob_remove_labeled: float = 0
+
+    # -- Variable prototype parameters
+    use_variable_proto: bool = True
+    use_prior_proto: bool = True
+    use_l_mask: bool = True
+    use_class_specific: bool = True
+    prototype_shape: tuple[int, int, int, int] = (0, 0, 0, 0)
+    prototype_class_identity: torch.Tensor = torch.zeros(0, 0)
+    prototype_ids_per_class: dict[int, list[int]] = dataclasses.field(default_factory=dict)
+    proto_layer_rf_info: list = dataclasses.field(default_factory=list)
+    prototype_activation_func: Union[
+        Literal["log", "linear"],
+        Callable[..., torch.Tensor],
+    ] = "log"
+
+
+@dataclasses.dataclass
+class DatasetSamples:
+    """Dataset samples."""
+
+    transformer_images: torch.Tensor # Support set
+    transformer_labels: torch.Tensor
+    cnn_images: torch.Tensor # Query set
+    cnn_labels: torch.Tensor
+    transformer_real_classes: Optional[torch.Tensor] = None
+    cnn_real_classes: Optional[torch.Tensor] = None
+    transformer_masks: Optional[torch.Tensor] = None
+    real_class_min: Optional[int] = None
+    real_class_max: Optional[int] = None
+
+    def to(self, device: torch.device):
+        # `vars(self)` -> `self.__dict__`
+        for name, value in vars(self).items():
+            if torch.is_tensor(value):
+                setattr(self, name, value.to(device))
+        return self
+
+
+def get_cnn_activation(
+    config: LayerwiseModelConfig
+) -> Callable[[torch.Tensor], torch.Tensor]:
+    if config.cnn_activation == "relu":
+        return F.relu
+    elif config.cnn_activation == "lrelu":
+        # This `negative_slope` value is used in the HowToTrainYourMAML code
+        return functools.partial(F.leaky_relu, negative_slope=0.01)
+    else:
+        raise ValueError(f"Unknown CNN nonlinearity {config.cnn_activation}.")
+
+
+def get_transformer_activation(
+    config: LayerwiseModelConfig
+) -> Callable[[torch.Tensor], torch.Tensor]:
+    if config.transformer_activation == "softmax":
+        # Note: PyTorch's `softmax` requires specifying dimensions
+        return lambda x: F.softmax(x, dim=-1)
+    elif config.transformer_activation == "sigmoid":
+        return torch.sigmoid
+    else:
+        raise ValueError(
+            f"Unknown Transformer nonlinearity {config.transformer_activation}."
+        )

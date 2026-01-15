@@ -1,0 +1,30 @@
+{
+    "cSpell.words": [
+        "absl",
+        "accs",
+        "avgpool",
+        "BCHW",
+        "BHWC",
+        "coefs",
+        "convs",
+        "darknet",
+        "embs",
+        "evals",
+        "hypertor",
+        "hypertransformer",
+        "journalctl",
+        "kaiming",
+        "layerwise",
+        "lexnet",
+        "MAML",
+        "maxpool",
+        "nagle",
+        "nohup",
+        "obfs",
+        "preds",
+        "randn",
+        "torchrun",
+        "torrc",
+        "virtualenvs"
+    ]
+}
