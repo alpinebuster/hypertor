@@ -207,12 +207,24 @@ def _make_warmup_loss(
     loss = torch.tensor(0., device=loss_prediction.device)
     weights = []
 
+    _torch_ref = loss_heads[0]
+    global_step_t = torch.tensor(
+        global_step,
+        device=_torch_ref.device,
+        dtype=_torch_ref.dtype,
+    )
+    steps_per_stage_t = torch.tensor(
+        steps_per_stage,
+        device=_torch_ref.device,
+        dtype=_torch_ref.dtype,
+    )
+
     # The following code ends up returning just the true model head loss
     # after `global_step` reaches `warmup_steps`.
 
     for stage, head_loss in enumerate(loss_heads):
-        target_steps = stage * steps_per_stage
-        norm_step_dist = torch.abs(global_step-target_steps) / steps_per_stage
+        target_steps = stage * steps_per_stage_t
+        norm_step_dist = torch.abs(global_step_t-target_steps) / steps_per_stage_t
         # This weight starts at 0 and peaks reaching 1 at `target_steps`. It then
         # decays linearly to 0 and stays 0.
         # weight = max(0, 1-norm_step_dist)
@@ -232,8 +244,8 @@ def _make_warmup_loss(
     3) When `global_step >= target_steps`:
        - weight=1
     """
-    target_steps = num_heads * steps_per_stage
-    norm_step_dist = 1. + (global_step-target_steps)/steps_per_stage
+    target_steps = num_heads * steps_per_stage_t
+    norm_step_dist = 1. + (global_step_t-target_steps)/steps_per_stage_t
     norm_step_dist = torch.relu(norm_step_dist)
     weight = torch.clamp(norm_step_dist, max=1.)
     weights.append(weight)
@@ -311,6 +323,7 @@ def train(
         for name, param in state.model.named_parameters():
             logging.info(f"{name}, device: {param.device}, grad: {param.grad is None}")
     state.model.dataset.to(device)
+    state.optimizer, state.scheduler = util.make_optimizer(optimizer_config, state.model)
 
     # DDP
     if FLAGS.use_ddp:
@@ -344,10 +357,6 @@ def train(
 
     starting_time = time.time()
     while state.global_step <= train_config.train_steps-step_updated:
-        logging.info(
-            f"{util.get_ddp_msg()}"
-        )
-
         add_scalar = functools.partial(
             state.summary_writer.add_scalar,
             global_step=state.global_step,
@@ -572,12 +581,34 @@ def train(
         state.optimizer.zero_grad()
         total_loss.backward()
 
-        # if FLAGS.use_ddp:
-        #     for name, p in unwrapped_model.named_parameters():
-        #         if p.requires_grad and p.grad is None:
-        #             logging.info(
-        #                 f"[DDP][rank={global_rank}] NO GRAD: {name}"
-        #             )
+        """
+        # Use this ONLY when debugging the model!!!
+        for name, p in unwrapped_model.named_parameters():
+            if p.requires_grad and p.grad is None:
+                logging.info(
+                    f"{util.get_ddp_msg()}NO GRAD: {name}"
+                )
+            if p.device.type != "cuda":
+                logging.info(
+                    f"{util.get_ddp_msg()}[PARAM NOT CUDA] {name} -> {p.device}"
+                )
+            if p.grad is not None and p.grad.device.type != "cuda":
+                logging.info(
+                    f"{util.get_ddp_msg()}[GRAD NOT CUDA] {name} -> {p.grad.device}"
+                )
+        for _, group in enumerate(state.optimizer.param_groups):
+            for p in group["params"]:
+                if p not in state.optimizer.state:
+                    continue
+                opt_state = state.optimizer.state[p]
+                for k, v in opt_state.items():
+                    if torch.is_tensor(v) and v.device != p.device:
+                        logging.info(
+                            f"{util.get_ddp_msg()}"
+                            f"[OPT STATE MISMATCH] param={p.shape} "
+                            f"opt_state={k} opt_state.device={v.device} param.device={p.device}"
+                        )
+        """
 
         state.optimizer.step()
         assert state.scheduler is not None
@@ -637,16 +668,20 @@ def train(
             )
             state.small_summaries["accuracy/test_accuracy"] = test_accuracy
 
-        if (state.global_step-start_step) % 100 == 1 and (not FLAGS.use_ddp or global_rank == 0):
+        if (
+            (state.global_step-start_step) % 100 == 1 and
+            (not FLAGS.use_ddp or global_rank == 0)
+        ):
             logging.info(
                 f"{util.get_ddp_msg()}"
-                f"Step: {state.global_step}, Time per step: {(time.time()-starting_time) / (state.global_step-start_step)}",
-                f"Step Updated: {step_updated}",
+                f"Step: {state.global_step}, "
+                f"Time per step: {(time.time()-starting_time) / (state.global_step-start_step)}, "
+                f"Step Updated: {step_updated}"
             )
 
         if (
-            train_config.steps_between_saves > 0
-            and state.global_step % train_config.steps_between_saves == 0
+            train_config.steps_between_saves > 0 and
+            state.global_step % train_config.steps_between_saves == 0
         ):
             state.save()
 

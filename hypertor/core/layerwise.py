@@ -1197,6 +1197,10 @@ class LogitsLayer(BaseCNNLayer):
         if self.generate_bias:
             self.block_size = self.linear_weight_size + 1 # + 1 bias
 
+        self.default_fc = nn.Linear(
+            self.linear_weight_size,
+            self.model_config.num_labels,
+        )
         self.generator.set_weight_params(
             num_weight_blocks=self.model_config.num_labels,
             weight_block_size=self.block_size,
@@ -1227,10 +1231,12 @@ class LogitsLayer(BaseCNNLayer):
         # [batch, channels] → [batch, num_labels]
         W = selected_weights["kernel"]
         B = selected_weights["bias"]
-        assert W is not None and B is not None
-        # input:  [B, in_features]
-        # weight: [num_labels, in_features]
-        return F.linear(dropout_tensor, weight=W.t(), bias=B)
+
+        if W is not None and B is not None:
+            # input:  [B, in_features]
+            # weight: [out_features, in_features]
+            return F.linear(dropout_tensor, weight=W.t(), bias=B)
+        return self.default_fc(dropout_tensor)
 
     def _var_getter(self, weights: Optional[list[torch.Tensor]], name: str) -> Optional[torch.Tensor]:
         if weights is None:
@@ -1295,6 +1301,10 @@ class FlattenLogitsLayer(LogitsLayer):
         if self.generate_bias:
             self.block_size = self.linear_weight_size + 1 # + 1 bias
 
+        self.default_fc = nn.Linear(
+            self.linear_weight_size,
+            self.model_config.num_labels,
+        )
         self.generator.set_weight_params(
             num_weight_blocks=self.model_config.num_labels,
             weight_block_size=self.block_size,
@@ -1320,10 +1330,12 @@ class FlattenLogitsLayer(LogitsLayer):
         # [batch, C*H*W] → [batch, num_labels]
         W = selected_weights["kernel"]
         B = selected_weights["bias"]
-        assert W is not None and B is not None
-        # input:  [B, in_features]
-        # weight: [num_labels, in_features]
-        return F.linear(dropout_tensor, weight=W.t(), bias=B)
+
+        if W is not None and B is not None:
+            # input:  [B, in_features]
+            # weight: [out_features, in_features]
+            return F.linear(dropout_tensor, weight=W.t(), bias=B)
+        return self.default_fc(dropout_tensor)
 
 
 class ProtoLogitsLayer(LogitsLayer):
