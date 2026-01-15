@@ -23,18 +23,19 @@ flags.DEFINE_bool(
     True,
     "If set, enable support for variable protos.",
 )
+
 flags.DEFINE_bool(
     "use_prior_proto",
     True,
-    "If set, a prototype–class prior is added to the hyper-generated weights of the last layer.",
+    "If True and `use_variable_proto` is enabled, a prototype–class prior is added to the hyper-generated weights of the last layer.",
 )
 flags.DEFINE_bool(
     "use_l_mask",
     True,
-    "If True, apply a mask to the regularization term.",
+    "If True and `use_variable_proto` is enabled, apply a mask to the regularization term.",
 )
 flags.DEFINE_bool(
     "use_class_specific",
     True,
-    "If True, enable class-specific processing.",
+    "If True and `use_variable_proto` is enabled, enable class-specific processing.",
 )

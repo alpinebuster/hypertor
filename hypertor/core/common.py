@@ -575,7 +575,7 @@ def train(
                     ].mean()
                     add_scalar_ddp("loss/p_avg_pair_dist", p_avg_pair_dist)
 
-            state.small_summaries["loss/loss"] = total_loss
+            state.small_summaries["loss/total_loss"] = total_loss
 
         # Backward + Step
         state.optimizer.zero_grad()
@@ -625,7 +625,6 @@ def train(
             ) and (
                 state.global_step+step_updated in push_epochs
             ):
-                assert isinstance(state.model, DDP)
                 (
                     change,
                     prototype_shape,

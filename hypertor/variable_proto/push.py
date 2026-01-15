@@ -1,7 +1,7 @@
 import os
 import time
 
-from typing import TYPE_CHECKING, cast, Optional
+from typing import TYPE_CHECKING, cast, Optional, Union
 
 from absl import logging
 from scipy.stats import kurtosis
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 def _update_prototypes_on_batch(
     search_batch_input,
     start_index_of_search_batch,
-    model_ddp: "DDP",
+    model_ddp: Union["DDP", "layerwise.LayerwiseModel"],
     epoch_number,
     global_min_proto_dist, # this will be updated
     global_min_fmap_patches, # this will be updated
@@ -64,6 +64,10 @@ def _update_prototypes_on_batch(
        percentile: Percentile of activation values
     """
     model_ddp.eval()
+    unwrapped_model = util.unwrap_model(model_ddp)
+    unwrapped_model = cast("layerwise.LayerwiseModel", unwrapped_model)
+    proto_layer = unwrapped_model.layers[-2]
+    assert isinstance(proto_layer, layerwise.VariableProtoLayer)
 
     if preprocess_input_function is not None:
         search_batch = preprocess_input_function(search_batch_input)
@@ -75,7 +79,7 @@ def _update_prototypes_on_batch(
         (
             protoL_input_torch, # x: (batch_size, channel_size, Hf, Wf)
             proto_dist_torch, # distances -> (batch_size, num_prototypes, Hf - Hp + 1, Wf - Wp + 1)
-        ) = model_ddp.module.push_forward(search_batch)
+        ) = proto_layer.push_forward(search_batch)
 
     protoL_input_ = np.copy(protoL_input_torch.detach().cpu().numpy())
     proto_dist_ = np.copy(proto_dist_torch.detach().cpu().numpy())
@@ -89,7 +93,7 @@ def _update_prototypes_on_batch(
             img_label = img_y.item()
             class_to_img_index_dict[img_label].append(img_index)
 
-    prototype_shape = model_ddp.module.prototype_shape
+    prototype_shape = proto_layer.prototype_shape
     n_prototypes = prototype_shape[0]
     proto_h = prototype_shape[2]
     proto_w = prototype_shape[3]
@@ -113,7 +117,7 @@ def _update_prototypes_on_batch(
             # `target_class` is the class of the `class_specific` prototype
             target_class = torch.argmax(
                 # prototype_class_identity -> (num_prototypes, num_classes)
-                model_ddp.module.prototype_class_identity[j]
+                proto_layer.prototype_class_identity[j]
             ).item()
 
             # If there is not images of the target_class from this batch
@@ -168,7 +172,7 @@ def _update_prototypes_on_batch(
             global_min_fmap_patches[j] = batch_min_fmap_patch_j
 
             # Get the receptive field boundary of the patch that generates the representation
-            protoL_rf_info = model_ddp.module.proto_layer_rf_info
+            protoL_rf_info = proto_layer.proto_layer_rf_info
             rf_prototype_j = compute_rf_prototype(
                 search_batch.size(2), batch_argmin_proto_dist_j, protoL_rf_info
             )
@@ -191,14 +195,13 @@ def _update_prototypes_on_batch(
 
             # Find the highly activated region of the original sample
             proto_dist_img_j = proto_dist_[img_index_in_batch, j, :, :]
-            if model_ddp.module.prototype_activation_func == "log":
+            if proto_layer.prototype_activation_func == "log":
                 proto_act_img_j = np.log(
                     (proto_dist_img_j + 1)
-                    / (proto_dist_img_j + model_ddp.module.epsilon)
+                    / (proto_dist_img_j + proto_layer.epsilon)
                 )
             elif (
-                model_ddp.module.prototype_activation_func
-                == "linear"
+                proto_layer.prototype_activation_func == "linear"
             ):
                 proto_act_img_j = max_dist - proto_dist_img_j
             else:
@@ -211,7 +214,8 @@ def _update_prototypes_on_batch(
                 interpolation=cv2.INTER_CUBIC,
             )
             proto_bound_j = find_high_activation_crop(
-                upsampled_act_img_j, percentile=percentile
+                upsampled_act_img_j, # type:ignore
+                percentile=percentile,
             )
 
             # Save the prototype boundary (rectangular boundary of highly activated region)
@@ -257,7 +261,7 @@ def _update_prototypes_on_batch(
 
 def push_prototypes(
     data: "common_ht.DatasetSamples", # Data must be unnormalized in [0,1]
-    model_ddp: "DDP",
+    model_ddp: Union["DDP", "layerwise.LayerwiseModel"],
     class_specific: bool = True,
     preprocess_input_function=None, # normalize if needed
     prototype_layer_stride:int = 1,
@@ -283,8 +287,8 @@ def push_prototypes(
     assert isinstance(proto_layer, layerwise.VariableProtoLayer)
 
     start = time.time()
-    prototype_shape = model_ddp.module.prototype_shape
-    n_prototypes = model_ddp.module.num_prototypes
+    prototype_shape = proto_layer.prototype_shape
+    n_prototypes = proto_layer.num_prototypes
     global_min_proto_dist = np.full(n_prototypes, np.inf)
     global_min_fmap_patches = np.zeros(
         [n_prototypes, prototype_shape[1], prototype_shape[2], prototype_shape[3]]
@@ -385,7 +389,8 @@ def push_prototypes(
         f"{util.get_ddp_msg()}Executing push ..."
     )
     prototype_update = np.reshape(global_min_fmap_patches, tuple(prototype_shape))
-    model_ddp.module.prototype_vectors.data.copy_(
+    assert proto_layer.prototype_vectors is not None
+    proto_layer.prototype_vectors.data.copy_(
         torch.tensor(prototype_update, dtype=torch.float32).cuda()
     )
 
@@ -401,7 +406,7 @@ def push_prototypes(
             f"{util.get_ddp_msg()}Epoch: {epoch_number}"
         )
 
-        num_protos_class = model_ddp.module.prototype_ids_per_class
+        num_protos_class = proto_layer.prototype_ids_per_class
         output = np.full((global_samples_dist.shape[0], num_classes), np.inf)
         for i in num_protos_class:
             protos = num_protos_class[i]
@@ -431,31 +436,25 @@ def push_prototypes(
                 f"{util.get_ddp_msg()}Indices_classes: {indices_classes}"
             )
             for k in indices_classes:
-                model_ddp.module.num_prototypes += 1
+                proto_layer.num_prototypes += 1
 
                 prototype_ids_per_class = list(
-                    model_ddp.module.prototype_ids_per_class[k]
+                    proto_layer.prototype_ids_per_class[k]
                 )
                 prototype_ids_per_class.append(
-                    int(model_ddp.module.num_prototypes) - 1
+                    int(proto_layer.num_prototypes)-1
                 )
-                model_ddp.module.prototype_ids_per_class[k] = tuple(
-                    prototype_ids_per_class
-                )
+                proto_layer.prototype_ids_per_class[k] = prototype_ids_per_class
 
-                prototype_shape = list(
-                    model_ddp.module.prototype_shape
-                )
-                prototype_shape[0] += 1
-                model_ddp.module.prototype_shape = tuple(
-                    prototype_shape
-                )
+                # [num_prototypes, num_channels, prototype_size, prototype_size]
+                p0, p1, p2, p3 = proto_layer.prototype_shape
+                proto_layer.prototype_shape = (p0+1, p1, p2, p3)
 
                 second_tensor = torch.zeros(1, num_classes)
                 second_tensor[0, k] = 1
-                model_ddp.module.prototype_class_identity = torch.cat(
+                proto_layer.prototype_class_identity = torch.cat(
                     (
-                        model_ddp.module.prototype_class_identity,
+                        proto_layer.prototype_class_identity,
                         second_tensor,
                     ),
                     0,
@@ -467,12 +466,12 @@ def push_prototypes(
                 update_prototype_class_identity,
                 update_num_prototypes_per_class,
             ) = (
-                model_ddp.module.prototype_shape,
-                model_ddp.module.prototype_class_identity,
-                model_ddp.module.prototype_ids_per_class,
+                proto_layer.prototype_shape,
+                proto_layer.prototype_class_identity,
+                proto_layer.prototype_ids_per_class,
             )
             logging.info(
-                f"{util.get_ddp_msg()}Number of prototypes: {model_ddp.module.num_prototypes}"
+                f"{util.get_ddp_msg()}Number of prototypes: {proto_layer.num_prototypes}"
             )
 
             # Export

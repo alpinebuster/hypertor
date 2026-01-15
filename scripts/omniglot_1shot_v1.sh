@@ -25,4 +25,4 @@ python -m hypertor.train --num_layerwise_features=8 --default_num_channels=8 \
   --test_smooth_probability=0.0 --test_contrast_probability=0.0 \
   --test_resize_probability=0.0 --test_negate_probability=0.0 \
   --test_roll_probability=0.0 --test_angle_range=-1.0 \
-  --warmup_steps=5000 $@
+  --warmup_steps=5000 --nouse_variable_proto $@
