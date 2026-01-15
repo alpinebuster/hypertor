@@ -14,7 +14,7 @@ python -m hypertor.train --num_layerwise_features=8 --default_num_channels=8 \
   --shared_feature_extractor='3-layer-bn' --shared_input_dim=1 --shared_features_dim=32 \
   --shared_feature_extractor_padding=same --layerwise_generator=joint \
   --nolw_use_nonlinear_feature --lw_weight_allocation=output --nolw_generate_bias \
-  --nolw_generate_bn --nouse_decoder --noadd_trainable_weights --image_size=["28"] \
+  --nolw_generate_bn --nouse_decoder --noadd_trainable_weights --image_size=28 \
   --balanced_batches --per_label_augmentation --rotation_probability=0.0 \
   --boundary_probability=0.0 --smooth_probability=0.0 --contrast_probability=0.0 \
   --resize_probability=0.0 --negate_probability=0.0 --roll_probability=0.0 \
@@ -24,4 +24,5 @@ python -m hypertor.train --num_layerwise_features=8 --default_num_channels=8 \
   --shuffle_labels_seed=2022 --test_rotation_probability=0.0 \
   --test_smooth_probability=0.0 --test_contrast_probability=0.0 \
   --test_resize_probability=0.0 --test_negate_probability=0.0 \
-  --test_roll_probability=0.0 --test_angle_range=-1.0 $@
+  --test_roll_probability=0.0 --test_angle_range=-1.0 \
+  --warmup_steps=5000 $@

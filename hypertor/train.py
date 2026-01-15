@@ -78,7 +78,7 @@ def _common_model_config():
         "num_transformer_samples": FLAGS.samples_transformer,
         "num_cnn_samples": FLAGS.samples_cnn,
         "num_labels": FLAGS.num_labels,
-        "image_size": FLAGS.image_size,
+        "image_size": util.normalize_image_size(FLAGS.image_size),
         "cnn_model_name": FLAGS.cnn_model_name,
         "embedding_dim": FLAGS.embedding_dim,
         "cnn_dropout_rate": FLAGS.cnn_dropout_rate,

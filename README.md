@@ -72,7 +72,7 @@ nohup torchrun --nproc_per_node=2 ./hypertor/train.py -- \
   --shared_feature_extractor='3-layer-bn' --shared_input_dim=1 --shared_features_dim=32 \
   --shared_feature_extractor_padding=same --layerwise_generator=joint \
   --nolw_use_nonlinear_feature --lw_weight_allocation=output --nolw_generate_bias \
-  --nolw_generate_bn --nouse_decoder --noadd_trainable_weights --image_size=["28"] \
+  --nolw_generate_bn --nouse_decoder --noadd_trainable_weights --image_size=28,28 \
   --balanced_batches --per_label_augmentation --rotation_probability=0.0 \
   --boundary_probability=0.0 --smooth_probability=0.0 --contrast_probability=0.0 \
   --resize_probability=0.0 --negate_probability=0.0 --roll_probability=0.0 \

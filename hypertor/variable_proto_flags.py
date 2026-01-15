@@ -3,8 +3,8 @@
 from absl import flags
 
 # Prototype pushing
-flags.DEFINE_integer("push_freq", 500, "Frequency of pushing prototypes.")
-flags.DEFINE_integer("push_start", 5000, "Epoch to start pushing prototypes.")
+flags.DEFINE_integer("push_freq", 1000, "Frequency of pushing prototypes.")
+flags.DEFINE_integer("push_start", 10000, "Epoch to start pushing prototypes.")
 
 # Prototype parameters
 flags.DEFINE_integer("prototypes", 1, "Number of prototypes per class.")

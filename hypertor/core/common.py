@@ -346,7 +346,6 @@ def train(
     while state.global_step <= train_config.train_steps-step_updated:
         logging.info(
             f"{util.get_ddp_msg()}"
-            f"step_updated: {step_updated}, global_step: {state.global_step}"
         )
 
         add_scalar = functools.partial(
@@ -591,9 +590,9 @@ def train(
                 if i % variable_proto_config.push_freq == 0
             ]
             if (
-                state.global_step + step_updated >= variable_proto_config.push_start
+                state.global_step+step_updated >= variable_proto_config.push_start
             ) and (
-                state.global_step + step_updated in push_epochs
+                state.global_step+step_updated in push_epochs
             ):
                 assert isinstance(state.model, DDP)
                 (
@@ -606,7 +605,7 @@ def train(
                     model_ddp=state.model,
                     prototype_layer_stride=1,
                     root_dir_for_saving_prototypes=os.path.join(state.checkpoint_dir, "prototypes"),
-                    epoch_number=state.global_step + step_updated,
+                    epoch_number=state.global_step+step_updated,
                     prototype_img_filename_prefix="prototype-img",
                     prototype_self_act_filename_prefix="prototype-self-act",
                     proto_bound_boxes_filename_prefix="bb",
@@ -638,12 +637,11 @@ def train(
             )
             state.small_summaries["accuracy/test_accuracy"] = test_accuracy
 
-        if (state.global_step - start_step) % 100 == 1 and (not FLAGS.use_ddp or global_rank == 0):
+        if (state.global_step-start_step) % 100 == 1 and (not FLAGS.use_ddp or global_rank == 0):
             logging.info(
                 f"{util.get_ddp_msg()}"
-                "Step: %d, Time per step: %f",
-                state.global_step,
-                (time.time() - starting_time) / (state.global_step - start_step),
+                f"Step: {state.global_step}, Time per step: {(time.time()-starting_time) / (state.global_step-start_step)}",
+                f"Step Updated: {step_updated}",
             )
 
         if (

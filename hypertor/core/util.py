@@ -733,3 +733,15 @@ def dbg_ddp(tag, **tensors):
                 f"[DDP] rank={dist.get_rank()} >>> "
                 f"{tag} {k}: cannot inspect ({e})"
             )
+
+def normalize_image_size(image_size: list[str]) -> tuple[int, int]:
+    values = [int(v) for v in image_size]
+
+    if len(values) == 1:
+        return (values[0], values[0])
+    elif len(values) >= 2:
+        return (values[0], values[1])
+    else:
+        raise ValueError(
+            f"`image_size` must have length 1 or 2+, got {values!r}"
+        )
