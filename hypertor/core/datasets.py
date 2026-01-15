@@ -243,7 +243,9 @@ def augment_images(
 
     images = images.float()/128.0 - 1.0
     return _random_crop_and_resize(
-        images, image_size, min_crop_fraction=min_crop_fraction
+        images,
+        image_size,
+        min_crop_fraction=min_crop_fraction,
     )
 
 

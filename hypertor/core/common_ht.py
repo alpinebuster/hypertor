@@ -61,7 +61,7 @@ class ModelConfig:
     embedding_dim: int = 8
 
     # Samples and images
-    image_size: Optional[int] = 28
+    image_size: tuple[int, int] = (28, 28)
     num_transformer_samples: int = 32
     num_cnn_samples: int = 128
 
@@ -193,6 +193,26 @@ class LayerwiseModelConfig(ModelConfig):
         Literal["log", "linear"],
         Callable[..., torch.Tensor],
     ] = "log"
+
+    def __post_init__(self):
+        if self.image_size is None:
+            self.image_size = (1, 1)
+        elif isinstance(self.image_size, int):
+            self.image_size = (self.image_size, self.image_size)
+        elif isinstance(self.image_size, (list, tuple)):
+            if len(self.image_size) == 1:
+                self.image_size = (self.image_size[0], self.image_size[0])
+            elif len(self.image_size) >= 2:
+                self.image_size = (self.image_size[0], self.image_size[1])
+            else:
+                raise ValueError(
+                    f"image_size list/tuple must have length 1, 2 or 3+, "
+                    f"got {len(self.image_size)}: {self.image_size!r}"
+                )
+        else:
+            raise TypeError(
+                f"`image_size` must be int, list or tuple, got {type(self.image_size).__name__}"
+            )
 
 
 @dataclasses.dataclass

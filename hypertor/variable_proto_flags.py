@@ -3,7 +3,7 @@
 from absl import flags
 
 # Prototype pushing
-flags.DEFINE_integer("push_freq", 100, "Frequency of pushing prototypes.")
+flags.DEFINE_integer("push_freq", 500, "Frequency of pushing prototypes.")
 flags.DEFINE_integer("push_start", 5000, "Epoch to start pushing prototypes.")
 
 # Prototype parameters
@@ -20,21 +20,21 @@ flags.DEFINE_float("coef_reg_last", 1e-4, "Coefficient for last layer regulariza
 
 flags.DEFINE_bool(
     "use_variable_proto",
-    False,
+    True,
     "If set, enable support for variable protos.",
 )
 flags.DEFINE_bool(
     "use_prior_proto",
-    False,
+    True,
     "If set, a prototype–class prior is added to the hyper-generated weights of the last layer.",
 )
 flags.DEFINE_bool(
     "use_l_mask",
-    False,
+    True,
     "If True, apply a mask to the regularization term.",
 )
 flags.DEFINE_bool(
     "use_class_specific",
-    False,
+    True,
     "If True, enable class-specific processing.",
 )

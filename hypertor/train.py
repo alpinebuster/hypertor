@@ -21,6 +21,7 @@ import torch.distributed as dist
 
 from hypertor import common_flags
 from hypertor import eval_model_flags  # pylint:disable=unused-import
+from hypertor import variable_proto_flags  # pylint:disable=unused-import
 
 from hypertor.core import common
 from hypertor.core import common_ht
@@ -40,7 +41,7 @@ FLAGS = flags.FLAGS
 
 
 def make_variable_proto_config():
-    return common_vp.TrainConfig(
+    return common_vp.ProtoTrainConfig(
         warm_epochs=FLAGS.warmup_steps,
         push_freq=FLAGS.push_freq,
         push_start=FLAGS.push_start,
@@ -124,7 +125,7 @@ def make_layerwise_model_config():
         weight_allocation=weight_allocation,
         generate_bn=FLAGS.lw_generate_bn,
         generate_bias=FLAGS.lw_generate_bias,
-        generate_last_layer_bias=FLAGS.generate_last_layer_bias,
+        generate_last_layer_bias=FLAGS.lw_generate_last_layer_bias,
         shared_feature_extractor=FLAGS.shared_feature_extractor,
         shared_input_dim=FLAGS.shared_input_dim,
         shared_features_dim=FLAGS.shared_features_dim,
@@ -330,7 +331,7 @@ def restore_variable_proto(
     """Restores variable prototype variables from a checkpoint."""
     if not model_config.use_variable_proto:
         return None
-    ckpt_path = util.latest_checkpoint(checkpoint or FLAGS.checkpoint_dir)
+    ckpt_path = util.latest_checkpoint(checkpoint or FLAGS.train_log_dir)
     if not ckpt_path:
         return None
     data = torch.load(ckpt_path, map_location="cpu")
@@ -356,7 +357,7 @@ def train(
     dataset_config: common_ht.DatasetConfig,
     test_dataset_config: common_ht.DatasetConfig,
     model_config: common_ht.LayerwiseModelConfig,
-    variable_proto_config: common_vp.TrainConfig,
+    variable_proto_config: common_vp.ProtoTrainConfig,
 ):
     """Main function training the model."""
     logging.info(f"{util.get_ddp_msg()}Creating the dataset...")
@@ -539,7 +540,7 @@ def main(argv):
 
     if FLAGS.use_ddp:
         util.setup_ddp()
-    if FLAGS.use_ddp and dist.get_rank() == 0:
+    if not FLAGS.use_ddp or dist.get_rank() == 0:
         logging.info(f"FLAGS: {FLAGS.flag_values_dict()}")
 
     gpus: str = FLAGS.gpus

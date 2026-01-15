@@ -11,6 +11,7 @@ import torch
 
 from hypertor import common_flags
 from hypertor import eval_model_flags  # pylint:disable=unused-import
+from hypertor import variable_proto_flags  # pylint:disable=unused-import
 from hypertor import train
 from hypertor.core import common_ht
 from hypertor.core import evaluation_lib as eval_lib

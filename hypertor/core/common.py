@@ -60,6 +60,7 @@ class TrainState:
     model: Union["layerwise.LayerwiseModel", DDP]
     optimizer: torch.optim.Optimizer
     scheduler: Optional[torch.optim.lr_scheduler.LRScheduler]
+    global_step: int = 0
 
     # Variable prototype parameters
     vp_state: Optional["common_vp.VariableProtoState"] = None
@@ -177,9 +178,9 @@ def _make_warmup_loss(
        2) Weights are defined by a triangular function that changes linearly.
           ▲ 1
           |
-          |      /\
-          |     /  \
-          |____/____\______ step
+          |      /\\
+          |     /  \\
+          |____/____\\______ step
                center
 
     ---
@@ -267,7 +268,7 @@ def _make_loss(
 def train(
     train_config: TrainConfig,
     model_config: "common_ht.LayerwiseModelConfig",
-    variable_proto_config: "common_vp.TrainConfig",
+    variable_proto_config: "common_vp.ProtoTrainConfig",
     optimizer_config: "common.OptimizerConfig",
     state: TrainState,
     batch_provider: tuple[
@@ -345,7 +346,7 @@ def train(
     while state.global_step <= train_config.train_steps-step_updated:
         logging.info(
             f"{util.get_ddp_msg()}"
-            "Epoch: \t{0}".format(state.global_step + step_updated)
+            f"step_updated: {step_updated}, global_step: {state.global_step}"
         )
 
         add_scalar = functools.partial(

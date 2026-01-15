@@ -398,7 +398,7 @@ def push_prototypes(
     # When the epoch is >= 100 in the later stage, the prototypes will be fixed and no longer increase dynamically.
     if epoch_number < 100:
         logging.info(
-            f"{util.get_ddp_msg()}Epoch: \t{0}".format(epoch_number)
+            f"{util.get_ddp_msg()}Epoch: {epoch_number}"
         )
 
         num_protos_class = model_ddp.module.prototype_ids_per_class
@@ -416,7 +416,7 @@ def push_prototypes(
         # Compute Kurtosis
         kurt = kurtosis(output_class)
         logging.info(
-            f"{util.get_ddp_msg()}Kurtosis: \t{0}".format(kurt)
+            f"{util.get_ddp_msg()}Kurtosis: {kurt}"
         )
         if kurt > 0:
             if epoch_number < 60:
@@ -483,7 +483,7 @@ def push_prototypes(
 
     end = time.time()
     logging.info(
-        f"{util.get_ddp_msg()}Push time: \t{end - start}"
+        f"{util.get_ddp_msg()}Push time: {end - start}"
     )
     return (
         update_kurt,

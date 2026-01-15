@@ -39,7 +39,11 @@ def _compute_layer_rf_info(
     return [n_out, j_out, r_out, start_out]
 
 def compute_proto_layer_rf_info(
-    input_size, layer_filter_sizes, layer_strides, layer_paddings, prototype_kernel_size
+    input_size: tuple[int, int], # [h, w]
+    layer_filter_sizes,
+    layer_strides,
+    layer_paddings,
+    prototype_kernel_size,
 ) -> list:
     assert len(layer_filter_sizes) == len(layer_strides)
     assert len(layer_filter_sizes) == len(layer_paddings)
