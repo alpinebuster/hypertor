@@ -60,6 +60,7 @@ def layerwise_params(request):
         image_size=image_size,
     )
     model_config.shared_input_dim = channels
+    model_config.use_variable_proto = False
 
     dataset_info = common_ht.DatasetInfo(
         num_labels=num_labels,

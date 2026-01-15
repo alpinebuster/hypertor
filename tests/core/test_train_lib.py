@@ -41,8 +41,9 @@ def test_make_dataset_helper(
     model_config = common_ht.LayerwiseModelConfig(
         num_transformer_samples=num_transformer_samples,
         num_cnn_samples=num_cnn_samples,
-        image_size=image_size,
+        image_size=(image_size, image_size),
     )
+    model_config.use_variable_proto = False
     dataset_info = common_ht.DatasetInfo(
         num_labels=num_labels,
         num_samples_per_label=num_samples_per_label,

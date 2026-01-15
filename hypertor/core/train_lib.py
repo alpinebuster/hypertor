@@ -136,7 +136,7 @@ def make_numpy_array(
     return output
 
 
-def _resize(imgs: torch.Tensor, image_size: int) -> torch.Tensor:
+def _resize(imgs: torch.Tensor, image_size: tuple[int, int]) -> torch.Tensor:
     if imgs.dim() == 2: # HW
         imgs = imgs.unsqueeze(0).unsqueeze(0)
     elif imgs.dim() == 3:
@@ -150,7 +150,7 @@ def _resize(imgs: torch.Tensor, image_size: int) -> torch.Tensor:
 
     return F.interpolate(
         imgs,
-        size=(image_size, image_size),
+        size=image_size,
         mode="bilinear",
         align_corners=False,
     )
@@ -159,7 +159,7 @@ def _resize(imgs: torch.Tensor, image_size: int) -> torch.Tensor:
 def _make_dataset_helper_unbalanced(
     numpy_arr: dict[int, np.ndarray],
     batch_size: int,
-    image_size: int,
+    image_size: tuple[int, int],
     num_labels: int,
     data_config: DatasetConfig,
     always_same_labels=False,
@@ -255,7 +255,7 @@ def _make_dataset_unbalanced(
     batch_size = model_config.num_transformer_samples
     batch_size += model_config.num_cnn_samples
 
-    assert model_config.image_size
+    assert len(model_config.image_size) == 2
     sample = _make_dataset_helper_unbalanced(
         numpy_arr=numpy_arr,
         batch_size=batch_size,
