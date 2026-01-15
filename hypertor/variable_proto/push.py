@@ -67,7 +67,7 @@ def _update_prototypes_on_batch(
     unwrapped_model = util.unwrap_model(model_ddp)
     unwrapped_model = cast("layerwise.LayerwiseModel", unwrapped_model)
     proto_layer = unwrapped_model.layers[-2]
-    assert isinstance(proto_layer, layerwise.VariableProtoLayer)
+    assert isinstance(proto_layer, "layerwise.VariableProtoLayer")
 
     if preprocess_input_function is not None:
         search_batch = preprocess_input_function(search_batch_input)
@@ -284,7 +284,7 @@ def push_prototypes(
     unwrapped_model = util.unwrap_model(model_ddp)
     unwrapped_model = cast("layerwise.LayerwiseModel", unwrapped_model)
     proto_layer = unwrapped_model.layers[-2]
-    assert isinstance(proto_layer, layerwise.VariableProtoLayer)
+    assert isinstance(proto_layer, "layerwise.VariableProtoLayer")
 
     start = time.time()
     prototype_shape = proto_layer.prototype_shape

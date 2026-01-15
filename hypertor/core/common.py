@@ -31,19 +31,6 @@ FLAGS = flags.FLAGS
 field = dataclasses.field
 
 
-class Sample(TypedDict):
-    image: Annotated[np.ndarray, "(C, H, W)"]
-    label: int | np.integer
-
-class Batch(TypedDict):
-    image: Annotated[torch.Tensor, "(B, C, H, W)"]
-    label: Annotated[torch.Tensor, "(B,)"]
-
-class BatchNumpy(TypedDict):
-    image: Annotated[np.ndarray, "(B, C, H, W)"]
-    label: Annotated[np.ndarray, "(B,)"]
-
-
 @dataclasses.dataclass
 class TrainConfig:
     """Training configuration."""
@@ -346,7 +333,7 @@ def train(
         state.optimizer, state.scheduler = util.make_optimizer(optimizer_config, state.model)
 
     start_step = state.global_step
-    step_updated = 0 
+    step_updated = 0
     if model_config.use_variable_proto:
         assert state.vp_state is not None
         step_updated = state.vp_state.step_updated
@@ -674,8 +661,8 @@ def train(
             logging.info(
                 f"{util.get_ddp_msg()}"
                 f"Step: {state.global_step}, "
-                f"Time per step: {(time.time()-starting_time) / (state.global_step-start_step)}, "
-                f"Step Updated: {step_updated}"
+                f"Time Per Step: {(time.time()-starting_time) / (state.global_step-start_step)}, "
+                f"Push Step Updated: {step_updated}"
             )
 
         if (

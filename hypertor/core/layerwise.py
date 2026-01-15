@@ -979,15 +979,26 @@ class VariableProtoLayer(BaseCNNLayer):
         self.prototype_class_identity = model_config.prototype_class_identity
         self.prototype_ids_per_class = model_config.prototype_ids_per_class
         self.proto_layer_rf_info = model_config.proto_layer_rf_info
+
         # `prototype_vectors` -> `prototype_shape`=[out_channels, in_channels, kernel_h, kernel_w]
         self.prototype_vectors = torch.rand(self.prototype_shape)
-        self.kernel_size = self.prototype_vectors.shape[-1]
-        self.output_dim = self.prototype_vectors.shape[0]
+        if self.add_trainable_weights:
+            nn.init.kaiming_normal_(self.prototype_vectors, mode="fan_in", nonlinearity="relu")
+            self.var_weights["kernel"] = nn.Parameter(
+                torch.zeros_like(self.prototype_vectors)
+            )
+
+        self.default_prototype_vectors = None
+        self.default_prototype_vectors = nn.Parameter(self.prototype_vectors)
+        nn.init.kaiming_normal_(self.default_prototype_vectors, mode="fan_in", nonlinearity="relu")
+
         self.ones = nn.Parameter(
             torch.ones(self.prototype_shape),
             requires_grad=False,
         )
 
+        self.kernel_size = self.prototype_vectors.shape[-1]
+        self.output_dim = self.prototype_vectors.shape[0]
         self.min_distances: Optional[torch.Tensor] = None
 
     def _compute_weight_sizes(self):
@@ -1026,10 +1037,16 @@ class VariableProtoLayer(BaseCNNLayer):
 
     def _l2_convolution(self, x: torch.Tensor) -> torch.Tensor:
         # prototype_vectors -> [num_prototypes, num_channels, prototype_size, prototype_size]=[out_channels, in_channels, kernel_h, kernel_w]
-        assert self.prototype_vectors is not None
-        xp = F.conv2d(input=x, weight=self.prototype_vectors)
+        if not self.enable_weight_generation:
+            p_vectors = self.default_prototype_vectors
+        else:
+            assert self.prototype_vectors is not None
+            p_vectors = self.prototype_vectors
+
+        assert p_vectors is not None
+        xp = F.conv2d(input=x, weight=p_vectors)
         x = F.conv2d(input=x**2, weight=self.ones)
-        p = torch.sum(self.prototype_vectors**2, dim=(1, 2, 3))
+        p = torch.sum(p_vectors**2, dim=(1, 2, 3))
         p = p.view(-1, 1, 1)
         return F.relu(x - 2*xp + p)
 
@@ -1077,8 +1094,8 @@ class VariableProtoLayer(BaseCNNLayer):
             ↓ 
         logits: (batch_size, num_classes)
         """
-        self.prototype_vectors = selected_weights["kernel"]
-        assert self.prototype_vectors is not None
+        if selected_weights["kernel"]:
+            self.prototype_vectors = selected_weights["kernel"]
 
         # (batch_size, channel_size, Hf, Wf)
         #                  ↓
@@ -1467,7 +1484,7 @@ class LayerwiseModel(nn.Module):
         #   = 0 : freeze all CNN layers (no backpropagation through CNN)
         #   > 0 : train the first N CNN layers
         #   < 0 : train the last |N| CNN layers
-        self._number_of_trained_cnn_layers = model_config.number_of_trained_cnn_layers
+        self.number_of_trained_cnn_layers = model_config.number_of_trained_cnn_layers
         self.shared_fe_dropout = model_config.shared_fe_dropout
         self.fe_dropout = model_config.fe_dropout
         self.model_config = model_config
@@ -1574,7 +1591,7 @@ class LayerwiseModel(nn.Module):
         if mask_random_samples:
             mask = remove_some_samples(labels, self.model_config, mask)
 
-        num_trained_layers = abs(self._number_of_trained_cnn_layers)
+        num_trained_layers = abs(self.number_of_trained_cnn_layers)
         # Last layer is always a LogitsLayer and we always generate it.
         num_generated_layers = len(self.layers) - num_trained_layers - 1
         if num_generated_layers < 0:
@@ -1583,7 +1600,7 @@ class LayerwiseModel(nn.Module):
                 "number of conv layers."
             )
 
-        is_first_trained = self._number_of_trained_cnn_layers >= 0
+        is_first_trained = self.number_of_trained_cnn_layers >= 0
         if is_first_trained:
             generate_weights_per_layers = (
                 [False] * num_trained_layers + [True] * num_generated_layers + [True]
