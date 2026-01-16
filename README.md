@@ -50,7 +50,7 @@ Folder `scripts` contains several training scripts for `omniglot`,
 They can be executed as follows:
 
 ```shell
-./scripts/omniglot_1shot_v1.sh --data_dir=../omniglot --data_numpy_dir=../omniglot/cache --train_log_dir=../omniglot/logs/torch
+./scripts/omniglot_1shot_v1.sh --data_dir=./data/omniglot --data_numpy_dir=./data/omniglot/cache --train_log_dir=./data/omniglot/logs/torch
 ```
 
 The evaluation script `evaluate_model.py` can be executed in parallel to
@@ -83,8 +83,8 @@ nohup torchrun --nproc_per_node=2 ./hypertor/train.py -- \
   --test_smooth_probability=0.0 --test_contrast_probability=0.0 \
   --test_resize_probability=0.0 --test_negate_probability=0.0 \
   --test_roll_probability=0.0 --test_angle_range=-1.0 \
-  --data_dir=../omniglot --data_numpy_dir=../omniglot/cache \
-  --train_log_dir=../omniglot/logs/torch \
+  --data_dir=./data/omniglot --data_numpy_dir=./data/omniglot/cache \
+  --train_log_dir=./data/omniglot/logs/torch \
   --use_ddp \
   > omniglot_ddp.log 2>&1 &
 ```

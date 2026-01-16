@@ -999,6 +999,8 @@ class VariableProtoLayer(BaseCNNLayer):
 
         self.kernel_size = self.prototype_vectors.shape[-1]
         self.output_dim = self.prototype_vectors.shape[0]
+        # Cache `conv_features` for pushing prototype
+        self.conv_features: Optional[torch.Tensor] = None
         self.min_distances: Optional[torch.Tensor] = None
 
     def _compute_weight_sizes(self):
@@ -1100,6 +1102,7 @@ class VariableProtoLayer(BaseCNNLayer):
         # (batch_size, channel_size, Hf, Wf)
         #                  ↓
         # (batch_size, num_prototypes, Hf-Hp+1, Wf-Wp+1)
+        self.conv_features = inputs
         distances = self._prototype_distances(inputs)
         # Each proto only retains the minimum distance (best match)
         # ... -> (batch_size, num_prototypes, 1, 1)
@@ -1113,9 +1116,10 @@ class VariableProtoLayer(BaseCNNLayer):
         self.min_distances = min_distances
         return prototype_activations
 
-    def push_forward(self, conv_features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def push_forward(self) -> tuple[torch.Tensor, torch.Tensor]:
         # x: (batch_size, channel_size, Hf, Wf)
-        conv_output = conv_features
+        assert self.conv_features is not None
+        conv_output = self.conv_features
         # distances -> (batch_size, num_prototypes, Hf-Hp+1, Wf-Wp+1)
         distances = self._l2_convolution(conv_output)
         return conv_output, distances
@@ -1383,8 +1387,6 @@ class ProtoLogitsLayer(LogitsLayer):
         )
         self.generator.set_feature_extractor_class(feature_extractor_class)
 
-        prior = self._set_incorrect_connection()
-        self.register_buffer("proto_prior", prior)
         self.last_linear_weight: Optional[torch.Tensor] = None
 
     def forward(
@@ -1400,8 +1402,8 @@ class ProtoLogitsLayer(LogitsLayer):
         assert W is not None
 
         if self.model_config.use_prior_proto:
-            assert isinstance(self.proto_prior, torch.Tensor)
-            W = W + self.proto_prior
+            proto_prior = self._set_incorrect_connection()
+            W = W + proto_prior.to(W.device)
 
         self.last_linear_weight = W
         # weight -> [num_classes, num_prototypes]

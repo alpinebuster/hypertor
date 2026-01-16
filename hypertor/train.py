@@ -383,6 +383,7 @@ def train(
     vp_state = restore_variable_proto(model_config)
     if vp_state:
         step_updated = vp_state.step_updated
+        num_prototypes = vp_state.prototype_shape[0]
         prototype_shape = vp_state.prototype_shape
         prototype_class_identity = vp_state.prototype_class_identity
         prototype_ids_per_class = vp_state.prototype_ids_per_class
@@ -495,15 +496,12 @@ def train(
             assert prototype_shape is not None
             assert prototype_class_identity is not None
             assert prototype_ids_per_class is not None
-            if vp_state:
-                state.vp_state = vp_state
-            else:
-                state.vp_state = common_vp.VariableProtoState(
-                    step_updated=step_updated,
-                    prototype_shape=prototype_shape,
-                    prototype_class_identity=prototype_class_identity,
-                    prototype_ids_per_class=prototype_ids_per_class,
-                )
+            state.vp_state = common_vp.VariableProtoState(
+                step_updated=step_updated,
+                prototype_shape=prototype_shape,
+                prototype_class_identity=prototype_class_identity,
+                prototype_ids_per_class=prototype_ids_per_class,
+            )
 
             layer_filter_sizes, layer_strides, layer_paddings = state.model.conv_info()
             proto_layer_rf_info = compute_proto_layer_rf_info(
@@ -513,6 +511,11 @@ def train(
                 layer_paddings=layer_paddings,
                 prototype_kernel_size=prototype_shape[2],
             )
+
+            proto_layer = state.model.layers[-2]
+            assert isinstance(proto_layer, layerwise.VariableProtoLayer)
+            proto_layer.num_prototypes = prototype_shape[0]
+            proto_layer.proto_layer_rf_info = proto_layer_rf_info
             model_config.proto_layer_rf_info = proto_layer_rf_info
 
         (

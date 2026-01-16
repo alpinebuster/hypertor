@@ -618,6 +618,7 @@ def train(
                     prototype_class_identity,
                     prototype_ids_per_class,
                 ) = push.push_prototypes(
+                    variable_proto_config,
                     train_batch,
                     model_ddp=state.model,
                     prototype_layer_stride=1,

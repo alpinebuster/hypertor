@@ -13,13 +13,15 @@ import cv2
 from hypertor.core import util
 from hypertor.variable_proto.receptive_field import compute_rf_prototype
 from hypertor.variable_proto.util import find_high_activation_crop
+import hypertor.core.layerwise as layerwise
 
 if TYPE_CHECKING:
     from hypertor.core import common_ht
-    import hypertor.core.layerwise as layerwise
+    from hypertor.variable_proto import common_vp
 
 
 def _update_prototypes_on_batch(
+    variable_proto_config: "common_vp.ProtoTrainConfig",
     search_batch_input,
     start_index_of_search_batch,
     model_ddp: Union["DDP", "layerwise.LayerwiseModel"],
@@ -43,7 +45,7 @@ def _update_prototypes_on_batch(
     """Update each prototypes for current search batch.
 
     Parameters:
-       search_batch_input: Batch from the data loader
+       search_batch_input: Episode from the data
        start_index_of_search_batch: Start index of the batch
        model_ddp: Model to process
        epoch_number: Number of epochs
@@ -67,7 +69,7 @@ def _update_prototypes_on_batch(
     unwrapped_model = util.unwrap_model(model_ddp)
     unwrapped_model = cast("layerwise.LayerwiseModel", unwrapped_model)
     proto_layer = unwrapped_model.layers[-2]
-    assert isinstance(proto_layer, "layerwise.VariableProtoLayer")
+    assert isinstance(proto_layer, layerwise.VariableProtoLayer)
 
     if preprocess_input_function is not None:
         search_batch = preprocess_input_function(search_batch_input)
@@ -78,8 +80,8 @@ def _update_prototypes_on_batch(
         search_batch = search_batch.cuda()
         (
             protoL_input_torch, # x: (batch_size, channel_size, Hf, Wf)
-            proto_dist_torch, # distances -> (batch_size, num_prototypes, Hf - Hp + 1, Wf - Wp + 1)
-        ) = proto_layer.push_forward(search_batch)
+            proto_dist_torch, # distances -> (batch_size, num_prototypes, Hf-Hp+1, Wf-Wp+1)
+        ) = proto_layer.push_forward()
 
     protoL_input_ = np.copy(protoL_input_torch.detach().cpu().numpy())
     proto_dist_ = np.copy(proto_dist_torch.detach().cpu().numpy())
@@ -97,11 +99,11 @@ def _update_prototypes_on_batch(
     n_prototypes = prototype_shape[0]
     proto_h = prototype_shape[2]
     proto_w = prototype_shape[3]
-    max_dist = prototype_shape[1] * prototype_shape[2] * prototype_shape[3]
+    max_dist = prototype_shape[1]*prototype_shape[2]*prototype_shape[3]
 
     # In the early stage, the model is still learning the prototypes.
     # When the epoch is >= 100 in the later stage, the prototypes will be fixed and no longer increase dynamically.
-    if epoch_number < 100:
+    if epoch_number < variable_proto_config.push_start+variable_proto_config.push_freq*50:
         # proto_dist_ -> (batch_size, n_prototypes, Hp, Wp)
         for spl in range(0, proto_dist_.shape[0]):
             for spl_proto in range(n_prototypes):
@@ -109,7 +111,7 @@ def _update_prototypes_on_batch(
                 dist_sample = np.amin(proto_dist_[spl, spl_proto, :, :])
                 # global_samples_dist -> (num_total_samples, n_prototypes)
                 global_samples_dist[
-                    start_index_of_search_batch + spl, spl_proto
+                    start_index_of_search_batch+spl, spl_proto
                 ] = dist_sample
 
     for j in range(n_prototypes):
@@ -174,12 +176,14 @@ def _update_prototypes_on_batch(
             # Get the receptive field boundary of the patch that generates the representation
             protoL_rf_info = proto_layer.proto_layer_rf_info
             rf_prototype_j = compute_rf_prototype(
-                search_batch.size(2), batch_argmin_proto_dist_j, protoL_rf_info
+                search_batch.size(2),
+                batch_argmin_proto_dist_j,
+                protoL_rf_info,
             )
 
             # Get the whole sample
             original_img_j = search_batch_input[rf_prototype_j[0]]
-            original_img_j = original_img_j.numpy()
+            original_img_j = original_img_j.detach().cpu().numpy()
             original_img_j = np.transpose(original_img_j, (1, 2, 0))
             original_img_size0 = original_img_j.shape[1]
             original_img_size1 = original_img_j.shape[0]
@@ -260,6 +264,7 @@ def _update_prototypes_on_batch(
         del class_to_img_index_dict # type: ignore
 
 def push_prototypes(
+    variable_proto_config: "common_vp.ProtoTrainConfig",
     data: "common_ht.DatasetSamples", # Data must be unnormalized in [0,1]
     model_ddp: Union["DDP", "layerwise.LayerwiseModel"],
     class_specific: bool = True,
@@ -284,7 +289,7 @@ def push_prototypes(
     unwrapped_model = util.unwrap_model(model_ddp)
     unwrapped_model = cast("layerwise.LayerwiseModel", unwrapped_model)
     proto_layer = unwrapped_model.layers[-2]
-    assert isinstance(proto_layer, "layerwise.VariableProtoLayer")
+    assert isinstance(proto_layer, layerwise.VariableProtoLayer)
 
     start = time.time()
     prototype_shape = proto_layer.prototype_shape
@@ -294,7 +299,9 @@ def push_prototypes(
         [n_prototypes, prototype_shape[1], prototype_shape[2], prototype_shape[3]]
     )
 
-    global_samples_dist = np.full((len(dataloader.dataset), n_prototypes), np.inf) # type: ignore
+    # Search batch size equals to global size in Query dataset
+    search_batch_size = data.cnn_images.shape[0]
+    global_samples_dist = np.full((search_batch_size, n_prototypes), np.inf) # type: ignore
 
     """
     proto_rf_boxes and proto_bound_boxes column:
@@ -331,10 +338,8 @@ def push_prototypes(
     else:
         proto_epoch_dir = None
 
-    search_batch_size = data.cnn_images.shape[0]
     num_classes = proto_layer.num_classes
 
-    # for push_iter, (search_batch_input, search_y) in enumerate(dataloader):
     for push_iter in range(0, num_classes, search_batch_size):
         cnn_images = data.cnn_images[
             push_iter: push_iter+search_batch_size
@@ -345,6 +350,7 @@ def push_prototypes(
         # `start_index_of_search_batch` keeps track of the index of the sample assigned to serve as prototype
         start_index_of_search_batch = push_iter * search_batch_size # type: ignore
         _update_prototypes_on_batch(
+            variable_proto_config,
             cnn_images,
             start_index_of_search_batch,
             model_ddp,
@@ -401,7 +407,7 @@ def push_prototypes(
 
     # In the early stage, the model is still learning the prototypes.
     # When the epoch is >= 100 in the later stage, the prototypes will be fixed and no longer increase dynamically.
-    if epoch_number < 100:
+    if epoch_number < variable_proto_config.push_start+variable_proto_config.push_freq*50:
         logging.info(
             f"{util.get_ddp_msg()}Epoch: {epoch_number}"
         )
@@ -424,7 +430,7 @@ def push_prototypes(
             f"{util.get_ddp_msg()}Kurtosis: {kurt}"
         )
         if kurt > 0:
-            if epoch_number < 60:
+            if epoch_number < variable_proto_config.push_start+variable_proto_config.push_freq*30:
                 p_upper = np.percentile(output_class, 75)
             else:
                 p_upper = np.percentile(output_class, 90)
@@ -457,7 +463,7 @@ def push_prototypes(
                         proto_layer.prototype_class_identity,
                         second_tensor,
                     ),
-                    0,
+                    dim=0,
                 )
 
             update_kurt = True

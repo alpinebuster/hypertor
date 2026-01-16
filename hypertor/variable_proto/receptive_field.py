@@ -76,7 +76,10 @@ def compute_proto_layer_rf_info(
 
 
 def _compute_rf_protoL_at_spatial_location(
-    size, height_index, width_index, protoL_rf_info
+    size,
+    height_index,
+    width_index,
+    protoL_rf_info,
 ) -> list:
     """Compute receptive field indexes for the prototype.
 
