@@ -1406,7 +1406,7 @@ class ProtoLogitsLayer(LogitsLayer):
 
         if self.model_config.use_prior_proto:
             proto_prior = self._set_incorrect_connection()
-            W = W + proto_prior.to(W.device)
+            W = W + proto_prior.t().to(W.device)
 
         self.last_linear_weight = W
         # weight -> [num_classes, num_prototypes]
@@ -1529,7 +1529,14 @@ class LayerwiseModel(nn.Module):
         enable_fe_dropout: bool = False,
         only_shared_feature: bool = False,
     ) -> None:
-        self._train(inputs, labels, mask, mask_random_samples, enable_fe_dropout, only_shared_feature)
+        self._train(
+            inputs,
+            labels,
+            mask,
+            mask_random_samples,
+            enable_fe_dropout,
+            only_shared_feature,
+        )
 
         # For variable prototype
         for layer in self.layers:

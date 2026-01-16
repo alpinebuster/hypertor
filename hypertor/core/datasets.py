@@ -255,28 +255,9 @@ def get_dataset_info(dataset_name: str) -> DatasetInfo:
         return DatasetInfo(
             num_labels=62, num_samples_per_label=1500, transpose_images=True
         )
-    elif dataset_name == "fashion_mnist":
-        return DatasetInfo(
-            num_labels=10, num_samples_per_label=3000, transpose_images=False
-        )
-    elif dataset_name == "kmnist":
-        return DatasetInfo(
-            num_labels=10, num_samples_per_label=3000, transpose_images=False
-        )
     elif dataset_name == "omniglot":
         return DatasetInfo(
             num_labels=1623, num_samples_per_label=20, transpose_images=False
-        )
-    elif dataset_name == "miniimagenet":
-        return DatasetInfo(
-            num_labels=100, num_samples_per_label=600, transpose_images=False
-        )
-    elif dataset_name == "tieredimagenet":
-        return DatasetInfo(
-            num_labels=608,
-            # This dataset has a variable number of samples per class
-            num_samples_per_label=None,
-            transpose_images=False,
         )
     else:
         raise ValueError(f'Dataset "{dataset_name}" is not supported.')
@@ -306,49 +287,6 @@ class _RandomValue:
     def assign_uniform(self, scale: float):
         self.value = random.uniform(-scale, scale)
 
-class _RandomRoll(nn.Module):
-    def __init__(self, prob=0.0, roll_x=0., roll_y=0.):
-        super().__init__()
-        self.prob = prob
-        self.roll_x = roll_x
-        self.roll_y = roll_y
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if torch.rand(size=[1]).item() > self.prob:
-            return x
-
-        if x.dim() == 4:
-            _, _, H, W = x.shape
-            dims = (2, 3)
-        elif x.dim() == 3:
-            _, H, W = x.shape
-            dims = (1, 2)
-        else:
-            raise ValueError("Input tensor must be 3D or 4D")
-
-        dx = int(self.roll_x * H)
-        dy = int(self.roll_y * W)
-        return torch.roll(x, shifts=(dx, dy), dims=dims)
-
-class _RandomResizedCropSameSize(nn.Module):
-    def __init__(self, prob=0.0, size=1.0):
-        super().__init__()
-        self.prob = prob
-        self.size = size
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if torch.rand(1).item() > self.prob:
-            return x
-
-        # BCHW, H = W
-        H = int(x.shape[-1])
-        # re_size ∈ [H*(1-MAX_RESIZE), H]
-        re_size = H * (1 - MAX_RESIZE / 2 + MAX_RESIZE * self.size / 2)
-
-        return T.RandomResizedCrop(
-            size=(H, H),
-            scale=(re_size, re_size),
-        )(x)
 
 @dataclasses.dataclass
 class AugmentationConfig:
@@ -460,30 +398,8 @@ class AugmentationConfig:
         if cfg.contrast_probability > 0. and self.contrast.value:
             transforms.append(T.ColorJitter(contrast=0.5))
 
-        if cfg.resize_probability > 0. and self.resize.value and self.size.value is not None:
-            transforms.append(
-                _RandomResizedCropSameSize(
-                    prob=1.,
-                    size=self.size.value,
-                )
-            )
-
         if cfg.negate_probability > 0. and self.negate.value:
             transforms.append(T.RandomInvert(p=1.))
-
-        if (
-            cfg.roll_probability > 0. and
-            self.roll.value and
-            self.roll_x.value is not None and
-            self.roll_y.value is not None
-        ):
-            transforms.append(
-                _RandomRoll(
-                    prob=1.,
-                    roll_x=self.roll_x.value,
-                    roll_y=self.roll_y.value,
-                )
-            )
 
         return T.Compose(transforms)
 

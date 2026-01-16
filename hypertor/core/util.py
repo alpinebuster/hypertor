@@ -363,10 +363,11 @@ def _extract_checkpoint_step(s: str) -> int:
     Extract step from checkpoint filename with format `prefix-<step>.pth`.
 
     Example:
-        model-1000.pth -> 1000
+        model-1000.pth   -> 1000
+        model-2-1000.pth -> 1000
     """
     stem = s.rsplit(".", 1)[0]
-    return int(stem.rsplit("-", 1)[1])
+    return int(stem.rsplit("-", 1)[-1])
 
 def _find_latest_checkpoint(ckpt_dir: str) -> Optional[str]:
     """Find latest checkpoint in directory by step number."""

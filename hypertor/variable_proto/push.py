@@ -212,10 +212,10 @@ def _update_prototypes_on_batch(
                 proto_act_img_j = prototype_activation_func_in_numpy(
                     proto_dist_img_j  # type: ignore
                 )
-            upsampled_act_img_j = cv2.resize(
+            upsampled_act_img_j = cv2.resize( # type: ignore
                 proto_act_img_j,
                 dsize=(original_img_size0, original_img_size1),
-                interpolation=cv2.INTER_CUBIC,
+                interpolation=cv2.INTER_CUBIC, # type: ignore
             )
             proto_bound_j = find_high_activation_crop(
                 upsampled_act_img_j, # type:ignore
@@ -239,9 +239,9 @@ def _update_prototypes_on_batch(
                     rescaled_act_img_j = rescaled_act_img_j / np.amax(
                         rescaled_act_img_j
                     )
-                    heatmap = cv2.applyColorMap(
+                    heatmap = cv2.applyColorMap( # type: ignore
                         src=np.uint8(255 * rescaled_act_img_j), # type: ignore
-                        colormap=cv2.COLORMAP_JET,
+                        colormap=cv2.COLORMAP_JET, # type: ignore
                     ) # type: ignore
                     heatmap = np.float32(heatmap) / 255
                     heatmap = heatmap[..., ::-1] # type: ignore
@@ -271,7 +271,7 @@ def push_prototypes(
     preprocess_input_function=None, # normalize if needed
     prototype_layer_stride:int = 1,
     root_dir_for_saving_prototypes: Optional[str] = None, # if not None, prototypes will be saved here
-    epoch_number: int=0, # if not provided, prototypes saved previously will be overwritten
+    epoch_number: int = 0, # if not provided, prototypes saved previously will be overwritten
     prototype_img_filename_prefix: Optional[str] = None,
     prototype_self_act_filename_prefix: Optional[str] = None,
     proto_bound_boxes_filename_prefix: Optional[str] = None,

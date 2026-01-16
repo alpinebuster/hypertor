@@ -454,6 +454,9 @@ def train(
 
     # Train the model with new prototypes
     change = True
+    updating_vp = False
+    # Continuing with last pushing when `use_variable_proto` enabled
+    global_step_vp = 0
     while change:
         logging.info(f"{util.get_ddp_msg()}Start Training...")
 
@@ -482,8 +485,10 @@ def train(
             )
         state = create_model(**_args)
 
+        if updating_vp:
+            state.global_step_vp = global_step_vp
         # This will update the values of state
-        restored = common.init_training(state)
+        restored = common.init_training(state, updating_vp)
         if not restored:
             model = restore_shared_features(
                 model=cast(layerwise.LayerwiseModel, state.model),
@@ -520,6 +525,7 @@ def train(
 
         (
             change,
+            last_global_step_vp,
             step_updated,
             prototype_shape,
             prototype_class_identity,
@@ -532,6 +538,8 @@ def train(
             state=state,
             batch_provider=(train_batch_provider, test_batch_provider),
         )
+        global_step_vp += last_global_step_vp
+        updating_vp = True
         del state
         torch.cuda.empty_cache()
 

@@ -48,6 +48,8 @@ class TrainState:
     optimizer: torch.optim.Optimizer
     scheduler: Optional[torch.optim.lr_scheduler.LRScheduler]
     global_step: int = 0
+    # Track all steps after pushing
+    global_step_vp: int = 0
 
     # Variable prototype parameters
     vp_state: Optional["common_vp.VariableProtoState"] = None
@@ -63,11 +65,18 @@ class TrainState:
         if FLAGS.use_ddp and dist.get_rank() != 0:
             return
 
-        logging.info(f"Saving checkpoint at step {self.global_step}")
+        logging.info(
+            f"Saving checkpoint at step {self.global_step}, "
+            f"with global_step_vp: {self.global_step_vp}"
+        )
         os.makedirs(self.checkpoint_dir, exist_ok=True)
+        if self.vp_state is not None:
+            pt_file_name = f"{self.checkpoint_suffix}-{self.vp_state.step_updated}-{self.global_step_vp}.pt"
+        else:
+            pt_file_name = f"{self.checkpoint_suffix}-{self.global_step}.pt"
         path = os.path.join(
             self.checkpoint_dir,
-            f"{self.checkpoint_suffix}-{self.global_step}.pt"
+            pt_file_name,
         )
         unwrapped_model = util.unwrap_model(self.model)
         unwrapped_model = cast("layerwise.LayerwiseModel", unwrapped_model)
@@ -276,6 +285,7 @@ def train(
     ],
 ) -> tuple[
     bool,
+    int,
     int,
     Optional[tuple[int, int, int, int]],
     Optional[torch.Tensor],
@@ -631,24 +641,27 @@ def train(
                     model_ddp=state.model,
                     prototype_layer_stride=1,
                     root_dir_for_saving_prototypes=os.path.join(state.checkpoint_dir, "prototypes"),
-                    epoch_number=state.global_step+step_updated,
+                    epoch_number=state.global_step_vp,
                     prototype_img_filename_prefix="prototype-img",
                     prototype_self_act_filename_prefix="prototype-self-act",
                     proto_bound_boxes_filename_prefix="bb",
                     save_prototype_class_identity=True,
                     percentile=99,
                 )
-                assert state.vp_state is not None
-                assert p_shape is not None
-                assert p_class_identity is not None
-                assert p_ids_per_class is not None
-                state.vp_state.step_updated = step_updated
-                state.vp_state.prototype_shape = p_shape
-                state.vp_state.prototype_class_identity = p_class_identity
-                state.vp_state.prototype_ids_per_class = p_ids_per_class
 
                 if change:
                     step_updated += state.global_step
+
+                    assert state.vp_state is not None
+                    assert p_shape is not None
+                    assert p_class_identity is not None
+                    assert p_ids_per_class is not None
+                    state.vp_state.step_updated = step_updated
+                    state.vp_state.prototype_shape = p_shape
+                    state.vp_state.prototype_class_identity = p_class_identity
+                    state.vp_state.prototype_ids_per_class = p_ids_per_class
+
+                    state.save()
                     break
 
         # Test accuracy
@@ -700,6 +713,7 @@ def train(
 
     return (
         change,
+        state.global_step,
         step_updated,
         p_shape,
         p_class_identity,
@@ -707,7 +721,7 @@ def train(
     )
 
 
-def init_training(state: TrainState) -> bool:
+def init_training(state: TrainState, updating_vp: bool = False) -> bool:
     """Initializes the training loop by creating writer if needed
     and try restoring latest checkpoint.
 
@@ -716,6 +730,10 @@ def init_training(state: TrainState) -> bool:
     """
     if state.summary_writer is None:
         state.summary_writer = util.MultiFileWriter(state.checkpoint_dir)
+
+    if updating_vp:
+        # Skip loading model state when updating variable prototype
+        return True
 
     restored, ckpt_path = state.load_latest()
     if not restored:
