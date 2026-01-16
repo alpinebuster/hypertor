@@ -638,6 +638,14 @@ def train(
                     save_prototype_class_identity=True,
                     percentile=99,
                 )
+                assert state.vp_state is not None
+                assert p_shape is not None
+                assert p_class_identity is not None
+                assert p_ids_per_class is not None
+                state.vp_state.step_updated = step_updated
+                state.vp_state.prototype_shape = p_shape
+                state.vp_state.prototype_class_identity = p_class_identity
+                state.vp_state.prototype_ids_per_class = p_ids_per_class
 
                 if change:
                     step_updated += state.global_step

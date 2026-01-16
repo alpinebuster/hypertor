@@ -1093,7 +1093,7 @@ class VariableProtoLayer(BaseCNNLayer):
             ↓ 
         logits: (batch_size, num_classes)
         """
-        if selected_weights["kernel"]:
+        if selected_weights["kernel"] is not None:
             p_vectors = selected_weights["kernel"]
         else:
             p_vectors = self.prototype_vectors
