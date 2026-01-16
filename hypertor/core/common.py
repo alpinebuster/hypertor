@@ -338,9 +338,9 @@ def train(
         assert state.vp_state is not None
         step_updated = state.vp_state.step_updated
     change = False
-    prototype_shape = None
-    prototype_class_identity = None
-    prototype_ids_per_class = None
+    p_shape = None
+    p_class_identity = None
+    p_ids_per_class = None
 
     starting_time = time.time()
     while state.global_step <= train_config.train_steps-step_updated:
@@ -445,26 +445,33 @@ def train(
 
             # Variable prototype
             if model_config.use_variable_proto:
-                proto_layer = unwrapped_model.layers[-2]
-                assert isinstance(proto_layer, layerwise.VariableProtoLayer)
+                p_layer = unwrapped_model.layers[-2]
+                assert isinstance(p_layer, layerwise.VariableProtoLayer)
                 last_layer = unwrapped_model.layers[-1]
                 assert isinstance(last_layer, layerwise.ProtoLogitsLayer)
                 assert last_layer.last_linear_weight is not None
-                min_distances = proto_layer.min_distances
+                min_distances = p_layer.min_distances
                 assert min_distances is not None
-                prototype_vectors = proto_layer.prototype_vectors
-                assert prototype_vectors is not None
-                prototype_class_identity = proto_layer.prototype_class_identity
-                assert prototype_class_identity is not None
+                p_vectors = p_layer.used_prototype_vectors
+                assert p_vectors is not None
+                p_class_identity = p_layer.prototype_class_identity
+                assert p_class_identity is not None
                 coefs = variable_proto_config
 
-                if model_config.use_class_specific:
+                if model_config.use_class_specific and (
+                    # NOTE: WARMUP first before using variable prototype!!!
+                    state.global_step > max(
+                        5000,
+                        variable_proto_config.push_start/2,
+                        variable_proto_config.warm_epochs,
+                    )
+                ):
                     # The maximum difference per pixel is 1 (feature map normalized)
                     # There are a total of C×H×W positions
                     max_dist = (
-                        proto_layer.prototype_shape[1] * \
-                        proto_layer.prototype_shape[2] * \
-                        proto_layer.prototype_shape[3]
+                        p_layer.prototype_shape[1] * \
+                        p_layer.prototype_shape[2] * \
+                        p_layer.prototype_shape[3]
                     )
 
                     # Calculate cluster cost
@@ -474,7 +481,7 @@ def train(
                         # pred_labels -> (batch_size,)
                         #       ↓
                         # (num_prototypes, batch_size)
-                        proto_layer.prototype_class_identity[:, train_batch.cnn_labels.cpu()]
+                        p_layer.prototype_class_identity[:, train_batch.cnn_labels.cpu()]
                     ).cuda()
                     # The larger the score in the similarity style, the better,
                     # so the distance must be reversed
@@ -504,7 +511,7 @@ def train(
                     add_scalar_ddp("loss/avg_separation_cost", avg_separation_cost)
 
                     # Prototypes L2 regularization
-                    l21 = prototype_vectors.norm(p=2)
+                    l21 = p_vectors.norm(p=2)
                     add_scalar_ddp("loss/l21", l21)
 
                     # Regularization
@@ -513,7 +520,7 @@ def train(
                         # Preserve the connections of the prototype to **correct** categories (without punishing)
                         # 
                         # (num_prototypes, num_classes) -> (num_classes, num_prototypes)
-                        l2_mask = 1 - torch.t(prototype_class_identity).cuda()
+                        l2_mask = 1 - torch.t(p_class_identity).cuda()
                         l22 = (last_layer.last_linear_weight * l2_mask).norm(p=2)
                     else:
                         l22 = last_layer.last_linear_weight.norm(p=2)
@@ -538,7 +545,7 @@ def train(
                 else:
                     min_distance, _ = torch.min(min_distances, dim=1)
                     cluster_cost = torch.mean(min_distance)
-                    l21 = prototype_vectors.norm(p=2)
+                    l21 = p_vectors.norm(p=2)
                     l22 = last_layer.last_linear_weight.norm(p=2)
 
                     add_scalar_ddp("loss/cluster_cost", cluster_cost)
@@ -554,9 +561,10 @@ def train(
                     else:
                         total_loss = total_loss + 0.8 * cluster_cost + 1e-3 * l21 + 1e-4 * l22
 
-                p = prototype_vectors.view(proto_layer.num_prototypes, -1).cpu()
+                assert p_layer.cached_prototype_vectors is not None
+                cached_p = p_layer.cached_prototype_vectors.view(p_layer.num_prototypes, -1).cpu()
                 with torch.no_grad():
-                    p_pair_dist = list_of_distances(p, p)
+                    p_pair_dist = list_of_distances(cached_p, cached_p)
                     p_avg_pair_dist = p_pair_dist[
                         ~torch.eye(p_pair_dist.size(0), dtype=torch.bool)
                     ].mean()
@@ -614,9 +622,9 @@ def train(
             ):
                 (
                     change,
-                    prototype_shape,
-                    prototype_class_identity,
-                    prototype_ids_per_class,
+                    p_shape,
+                    p_class_identity,
+                    p_ids_per_class,
                 ) = push.push_prototypes(
                     variable_proto_config,
                     train_batch,
@@ -685,9 +693,9 @@ def train(
     return (
         change,
         step_updated,
-        prototype_shape,
-        prototype_class_identity,
-        prototype_ids_per_class,
+        p_shape,
+        p_class_identity,
+        p_ids_per_class,
     )
 
 

@@ -980,18 +980,18 @@ class VariableProtoLayer(BaseCNNLayer):
         self.prototype_ids_per_class = model_config.prototype_ids_per_class
         self.proto_layer_rf_info = model_config.proto_layer_rf_info
 
+        # 1) Training semantics (without `detach`)
+        self.cached_prototype_vectors: Optional[torch.Tensor] = None
+        # 2) For push and visualization semantics (`detach`+`clone`)
+        self.used_prototype_vectors: Optional[torch.Tensor] = None
+
         # `prototype_vectors` -> `prototype_shape`=[out_channels, in_channels, kernel_h, kernel_w]
-        self.prototype_vectors = torch.rand(self.prototype_shape)
+        self.prototype_vectors = nn.Parameter(torch.empty(self.prototype_shape))
+        nn.init.kaiming_normal_(self.prototype_vectors, mode="fan_in", nonlinearity="relu")
         if self.add_trainable_weights:
-            nn.init.kaiming_normal_(self.prototype_vectors, mode="fan_in", nonlinearity="relu")
             self.var_weights["kernel"] = nn.Parameter(
                 torch.zeros_like(self.prototype_vectors)
             )
-
-        self.default_prototype_vectors = None
-        self.default_prototype_vectors = nn.Parameter(self.prototype_vectors)
-        nn.init.kaiming_normal_(self.default_prototype_vectors, mode="fan_in", nonlinearity="relu")
-
         self.ones = nn.Parameter(
             torch.ones(self.prototype_shape),
             requires_grad=False,
@@ -1037,15 +1037,12 @@ class VariableProtoLayer(BaseCNNLayer):
         )
         self.generator.set_feature_extractor_class(feature_extractor_class)
 
-    def _l2_convolution(self, x: torch.Tensor) -> torch.Tensor:
-        # prototype_vectors -> [num_prototypes, num_channels, prototype_size, prototype_size]=[out_channels, in_channels, kernel_h, kernel_w]
-        if not self.enable_weight_generation:
-            p_vectors = self.default_prototype_vectors
-        else:
-            assert self.prototype_vectors is not None
-            p_vectors = self.prototype_vectors
-
-        assert p_vectors is not None
+    def _l2_convolution(
+        self,
+        x: torch.Tensor,
+        p_vectors: torch.Tensor,
+    ) -> torch.Tensor:
+        # p_vectors -> [num_prototypes, num_channels, prototype_size, prototype_size]=[out_channels, in_channels, kernel_h, kernel_w]
         xp = F.conv2d(input=x, weight=p_vectors)
         x = F.conv2d(input=x**2, weight=self.ones)
         p = torch.sum(p_vectors**2, dim=(1, 2, 3))
@@ -1055,9 +1052,9 @@ class VariableProtoLayer(BaseCNNLayer):
     def _prototype_distances(
         self,
         conv_features: torch.Tensor,
+        p_vectors: torch.Tensor,
     ) -> torch.Tensor:
-        distances = self._l2_convolution(conv_features)
-        return distances
+        return self._l2_convolution(conv_features, p_vectors)
 
     def _distance_2_similarity(self, distances: torch.Tensor) -> torch.Tensor:
         if self.prototype_activation_func == "log":
@@ -1097,13 +1094,17 @@ class VariableProtoLayer(BaseCNNLayer):
         logits: (batch_size, num_classes)
         """
         if selected_weights["kernel"]:
-            self.prototype_vectors = selected_weights["kernel"]
+            p_vectors = selected_weights["kernel"]
+        else:
+            p_vectors = self.prototype_vectors
+        self.cached_prototype_vectors = p_vectors.detach().clone()
+        self.used_prototype_vectors = p_vectors
 
         # (batch_size, channel_size, Hf, Wf)
         #                  ↓
         # (batch_size, num_prototypes, Hf-Hp+1, Wf-Wp+1)
         self.conv_features = inputs
-        distances = self._prototype_distances(inputs)
+        distances = self._prototype_distances(inputs, p_vectors)
         # Each proto only retains the minimum distance (best match)
         # ... -> (batch_size, num_prototypes, 1, 1)
         min_distances = -F.max_pool2d(
@@ -1116,12 +1117,14 @@ class VariableProtoLayer(BaseCNNLayer):
         self.min_distances = min_distances
         return prototype_activations
 
+    @torch.no_grad()
     def push_forward(self) -> tuple[torch.Tensor, torch.Tensor]:
         # x: (batch_size, channel_size, Hf, Wf)
         assert self.conv_features is not None
         conv_output = self.conv_features
         # distances -> (batch_size, num_prototypes, Hf-Hp+1, Wf-Wp+1)
-        distances = self._l2_convolution(conv_output)
+        assert self.cached_prototype_vectors is not None
+        distances = self._l2_convolution(conv_output, self.cached_prototype_vectors)
         return conv_output, distances
 
     def _var_getter(self, weights: Optional[list[torch.Tensor]], name: str) -> Optional[torch.Tensor]:
