@@ -9,7 +9,7 @@ from hypertor.core import datasets
 
 
 @pytest.mark.parametrize(
-    "num_transformer_samples,num_cnn_samples,num_samples_per_label,num_labels,channels,image_size",
+    "num_transformer_samples,num_cnn_samples,num_samples_per_label,num_labels,channels,flows_shape",
     [
         (8, 8, 8, 4, 1, 16), # num_transformer_samples < num_samples_per_label and num_cnn_samples < num_samples_per_label
         (2, 6, 10, 5, 3, 32),
@@ -22,16 +22,16 @@ def test_make_dataset_helper(
     num_samples_per_label: int,
     num_labels: int,
     channels: int,
-    image_size: int,
+    flows_shape: int,
 ):
     """Tests `make_dataset_helper` function."""
     batch_size = num_samples_per_label * num_labels
     assert batch_size % num_labels == 0
     repetitions = batch_size // num_labels
 
-    # (batch_size, channels, image_size, image_size)
+    # (batch_size, channels, flows_shape, flows_shape)
     images = np.zeros(
-        (batch_size, channels, image_size, image_size),
+        (batch_size, channels, flows_shape, flows_shape),
         dtype=np.float32,
     )
     # [0,1,..,num_labels, ..., 0,1,..,num_labels]
@@ -41,13 +41,13 @@ def test_make_dataset_helper(
     model_config = common_ht.LayerwiseModelConfig(
         num_transformer_samples=num_transformer_samples,
         num_cnn_samples=num_cnn_samples,
-        image_size=(image_size, image_size),
+        flows_shape=(flows_shape, flows_shape),
     )
     model_config.use_variable_proto = False
     dataset_info = common_ht.DatasetInfo(
         num_labels=num_labels,
         num_samples_per_label=num_samples_per_label,
-        transpose_images=False,
+        transpose_samples=False,
     )
     data_config = common_ht.DatasetConfig(
         dataset_name="dataset",
@@ -66,13 +66,13 @@ def test_make_dataset_helper(
         shuffle_labels=True,
     )
     outputs = {
-        "train_images": samples.transformer_images,
+        "train_images": samples.transformer_samples,
         "train_labels": samples.transformer_labels,
-        "cnn_images": samples.cnn_images,
+        "cnn_samples": samples.cnn_samples,
         "cnn_labels": samples.cnn_labels,
     }
 
-    assert outputs["train_images"].shape == (num_transformer_samples, channels, image_size, image_size)
+    assert outputs["train_images"].shape == (num_transformer_samples, channels, flows_shape, flows_shape)
     assert outputs["train_labels"].shape == (num_transformer_samples,)
-    assert outputs["cnn_images"].shape == (num_cnn_samples, channels, image_size, image_size)
+    assert outputs["cnn_samples"].shape == (num_cnn_samples, channels, flows_shape, flows_shape)
     assert outputs["cnn_labels"].shape == (num_cnn_samples,)

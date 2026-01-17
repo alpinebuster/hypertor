@@ -59,7 +59,7 @@ class _TransformerIO(nn.Module):
        weight token = [ weight_emb |   zeros    ]
                        ←-- D_w --→  ←-- I_w --→
 
-       label token  = [ label_emb  | images_emb ]
+       label token  = [ label_emb  | samples_emb ]
                        ←-- D_l --→  ←-- I_l --→
 
        a) W_i = [ w1 , w2 , ... ]
@@ -140,31 +140,31 @@ class SimpleTransformerIO(_TransformerIO):
 
     def encode_samples(
         self,
-        images: torch.Tensor,
+        samples: torch.Tensor,
         labels: torch.Tensor,
     ) -> torch.Tensor:
         """Generates Transformer inputs from input samples.
 
         Args:
-           images: FloatTensor [batch, image_size, image_size, channels]
+           samples: FloatTensor [batch, flows_shape, flows_shape, channels]
            labels: LongTensor  [batch]
 
         Returns: 
-           FloatTensor [batch, label_dim + image_dim]
+           FloatTensor [batch, label_dim + sample_dim]
         """
-        batch_size: int = images.shape[0]
+        batch_size: int = samples.shape[0]
 
-        # Flatten image features
+        # Flatten sample features
         #                                I_l
-        images = images.view(batch_size, -1)
+        samples = samples.view(batch_size, -1)
         encoded_labels: torch.Tensor = self._encode_labels(labels)
         """
         encoded_labels: [batch_size, label_dim]
-        images:         [batch_size, image_dim]
+        samples:         [batch_size, sample_dim]
                             ↓
-        [batch_size, label_dim + image_dim]
+        [batch_size, label_dim + sample_dim]
         """
-        return torch.cat([encoded_labels, images], dim=-1)
+        return torch.cat([encoded_labels, samples], dim=-1)
 
     def extend_label_mask(self, label_mask: torch.Tensor) -> torch.Tensor:
         return label_mask
@@ -243,34 +243,34 @@ class JointTransformerIO(_TransformerIO):
 
     def encode_samples(
         self,
-        images: torch.Tensor,
+        samples: torch.Tensor,
         labels: torch.Tensor,
     ) -> torch.Tensor:
         """Generates Transformer inputs from input samples.
 
         Args:
-           images: FloatTensor [B, ...]
+           samples: FloatTensor [B, ...]
            labels: LongTensor  [B]
 
         Returns:
            sequence: FloatTensor [num_weights + B, D_w + I_l]
         """        
         # Sample
-        batch_size: int = images.shape[0]
-        # Flatten image features
+        batch_size: int = samples.shape[0]
+        # Flatten sample features
         #                                                   I_l
-        images_flat: torch.Tensor = images.view(batch_size, -1)
+        samples_flat: torch.Tensor = samples.view(batch_size, -1)
         encoded_labels: torch.Tensor = self._encode_labels(labels)
         # [B, D_l + I_l]
-        sequence: torch.Tensor = torch.concat([encoded_labels, images_flat], dim=-1)
+        sequence: torch.Tensor = torch.concat([encoded_labels, samples_flat], dim=-1)
 
         # Weight
         weight_sequence: Union[list[torch.Tensor], torch.Tensor] = []
-        image_dim: int = images_flat.shape[1]
+        sample_dim: int = samples_flat.shape[1]
         for i in range(self.num_weights):
             weight_emb: torch.Tensor = self.weight_embs[i] # [D_w]
             zero_emb: torch.Tensor = torch.zeros(
-                image_dim,
+                sample_dim,
                 dtype=sequence.dtype,
                 device=sequence.device,
             ) # [I_l]
@@ -735,8 +735,8 @@ def dbg_ddp(tag, **tensors):
                 f"{tag} {k}: cannot inspect ({e})"
             )
 
-def normalize_image_size(image_size: list[str]) -> tuple[int, int]:
-    values = [int(v) for v in image_size]
+def normalize_flows_size(flows_shape: list[str]) -> tuple[int, int]:
+    values = [int(v) for v in flows_shape]
 
     if len(values) == 1:
         return (values[0], values[0])
@@ -744,5 +744,5 @@ def normalize_image_size(image_size: list[str]) -> tuple[int, int]:
         return (values[0], values[1])
     else:
         raise ValueError(
-            f"`image_size` must have length 1 or 2+, got {values!r}"
+            f"`flows_shape` must have length 1 or 2+, got {values!r}"
         )

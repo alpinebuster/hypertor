@@ -178,7 +178,7 @@ def evaluate_pretrained(model_config: common_ht.LayerwiseModelConfig):
         )
         with torch.no_grad():
             model.setup(
-                dataset.transformer_images,
+                dataset.transformer_samples,
                 dataset.transformer_labels,
                 mask=dataset.transformer_masks,
                 mask_random_samples=True,

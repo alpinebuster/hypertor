@@ -19,7 +19,7 @@ from hypertor.core import train_lib
         "num_samples_per_label": 8,
         "num_labels": 4,
         "channels": 1,
-        "image_size": 32,
+        "flows_shape": 32,
     },
     {
         "num_transformer_samples": 2,
@@ -27,7 +27,7 @@ from hypertor.core import train_lib
         "num_samples_per_label": 10,
         "num_labels": 5,
         "channels": 3,
-        "image_size": 64,
+        "flows_shape": 64,
     },
 ])
 def layerwise_params(request):
@@ -37,7 +37,7 @@ def layerwise_params(request):
     num_samples_per_label = p["num_samples_per_label"]
     num_labels = p["num_labels"]
     channels = p["channels"]
-    image_size = p["image_size"]
+    flows_shape = p["flows_shape"]
 
     torch.manual_seed(0)
 
@@ -45,19 +45,19 @@ def layerwise_params(request):
     assert batch_size % num_labels == 0
     repetitions = batch_size // num_labels
 
-    # (batch_size, channels, image_size, image_size)
-    images = np.zeros(
-        (batch_size, channels, image_size, image_size),
+    # (batch_size, channels, flows_shape, flows_shape)
+    samples = np.zeros(
+        (batch_size, channels, flows_shape, flows_shape),
         dtype=np.float32,
     )
     # [0,1,..,num_labels-1, ..., 0,1,..,num_labels-1]
     labels = np.array(list(range(num_labels))*repetitions, dtype=np.int32)
-    ds = datasets.HTDataset(images, labels)
+    ds = datasets.HTDataset(samples, labels)
 
     model_config = common_ht.LayerwiseModelConfig(
         num_transformer_samples=num_transformer_samples,
         num_cnn_samples=num_cnn_samples,
-        image_size=image_size,
+        flows_shape=flows_shape,
     )
     model_config.shared_input_dim = channels
     model_config.use_variable_proto = False
@@ -65,7 +65,7 @@ def layerwise_params(request):
     dataset_info = common_ht.DatasetInfo(
         num_labels=num_labels,
         num_samples_per_label=num_samples_per_label,
-        transpose_images=False,
+        transpose_samples=False,
     )
 
     dataset, label_set = util.parse_dataset_spec(f"emnist:0-{num_labels-1}")
@@ -103,7 +103,7 @@ def test_number_of_trained_cnn_layers_param_should_give_trained_weights(layerwis
         model_config=model_config,
         dataset=dataset,
     )
-    weights = model._train(dataset.transformer_images, dataset.transformer_labels)
+    weights = model._train(dataset.transformer_samples, dataset.transformer_labels)
 
     # The first CNN layer is directly trained → no weights are generated
     assert weights.weight_blocks[0] is None
@@ -111,7 +111,7 @@ def test_number_of_trained_cnn_layers_param_should_give_trained_weights(layerwis
     for weight_block in weights.weight_blocks[1:]:
         assert weight_block is not None
 
-    model._evaluate(dataset.cnn_images, weight_blocks=weights)
+    model._evaluate(dataset.cnn_samples, weight_blocks=weights)
 
     # The first layer: real trainable parameters
     first_kernel = model.layers[0].kernel
@@ -138,7 +138,7 @@ def test_negative_number_of_trained_cnn_layers_param_trains_last_layers(layerwis
         dataset=dataset,
     )
 
-    weights = model._train(dataset.transformer_images, dataset.transformer_labels)
+    weights = model._train(dataset.transformer_samples, dataset.transformer_labels)
 
     # The second-to-last layer is directly trained
     assert weights.weight_blocks[-2] is None
@@ -146,7 +146,7 @@ def test_negative_number_of_trained_cnn_layers_param_trains_last_layers(layerwis
     for weight_block in weights.weight_blocks[:-2]:
         assert weight_block is not None
 
-    model._evaluate(dataset.cnn_images, weight_blocks=weights)
+    model._evaluate(dataset.cnn_samples, weight_blocks=weights)
 
     # The penultimate layer: real trainable parameters
     last_trained_kernel = model.layers[-2].kernel
@@ -174,17 +174,17 @@ def test_layer_with_activation_after_bn_different_activation_before_bn(layerwise
         act_fn=act_fn,
         act_after_bn=True,
     )
-    layer_act_after._setup(dataset.cnn_images)
+    layer_act_after._setup(dataset.cnn_samples)
     layer_act_before = layerwise.ConvLayer(
         name="test_layer_activation_before",
         model_config=model_config,
         act_fn=act_fn,
         act_after_bn=False,
     )
-    layer_act_before._setup(dataset.cnn_images)
+    layer_act_before._setup(dataset.cnn_samples)
 
-    out_after = layer_act_after(dataset.cnn_images)
-    out_before = layer_act_before(dataset.cnn_images)
+    out_after = layer_act_after(dataset.cnn_samples)
+    out_before = layer_act_before(dataset.cnn_samples)
 
     # act_after_bn=True → The final step is `act_fn` → all 1s
     assert torch.allclose(

@@ -90,7 +90,7 @@ def _update_prototypes_on_batch(
 
     if class_specific:
         class_to_img_index_dict = {key: [] for key in range(num_classes)} # type: ignore
-        # img_y is the image's integer label
+        # img_y is the sample's integer label
         for img_index, img_y in enumerate(search_y): # type: ignore
             img_label = img_y.item()
             class_to_img_index_dict[img_label].append(img_index)
@@ -107,7 +107,7 @@ def _update_prototypes_on_batch(
         # proto_dist_ -> (batch_size, n_prototypes, Hp, Wp)
         for spl in range(0, proto_dist_.shape[0]):
             for spl_proto in range(n_prototypes):
-                # One image → One prototype → Take the feature map that most resembles the prototype
+                # One sample → One prototype → Take the feature map that most resembles the prototype
                 dist_sample = np.amin(proto_dist_[spl, spl_proto, :, :])
                 # global_samples_dist -> (num_total_samples, n_prototypes)
                 global_samples_dist[
@@ -122,7 +122,7 @@ def _update_prototypes_on_batch(
                 proto_layer.prototype_class_identity[j]
             ).item()
 
-            # If there is not images of the target_class from this batch
+            # If there is not samples of the `target_class` from this batch
             # we go on to the next prototype
             if len(class_to_img_index_dict[target_class]) == 0: # type: ignore
                 continue
@@ -275,7 +275,7 @@ def push_prototypes(
     prototype_img_filename_prefix: Optional[str] = None,
     prototype_self_act_filename_prefix: Optional[str] = None,
     proto_bound_boxes_filename_prefix: Optional[str] = None,
-    save_prototype_class_identity: bool = True, # which class the prototype image comes from
+    save_prototype_class_identity: bool = True, # which class the prototype sample comes from
     prototype_activation_func_in_numpy=None,
     percentile: int = 95,
 ):
@@ -300,7 +300,7 @@ def push_prototypes(
     )
 
     # Search batch size equals to global size in Query dataset
-    search_batch_size = data.cnn_images.shape[0]
+    search_batch_size = data.cnn_samples.shape[0]
     global_samples_dist = np.full((search_batch_size, n_prototypes), np.inf) # type: ignore
 
     """
@@ -314,7 +314,7 @@ def push_prototypes(
 
     e.g.
     [
-        [35, 10, 14,  8, 12, 2], # prototype 0 → From the 35th image → matches (10:14, 8:12) → Category 2
+        [35, 10, 14,  8, 12, 2], # prototype 0 → From the 35th sample → matches (10:14, 8:12) → Category 2
         [89,  4,  8,  5,  9, 5], # prototype 1
         [12, 15, 19, 16, 20, 5], # prototype 2
         [ 7, 20, 24, 30, 34, 0], # prototype 3
@@ -341,7 +341,7 @@ def push_prototypes(
     num_classes = proto_layer.num_classes
 
     for push_iter in range(0, num_classes, search_batch_size):
-        cnn_images = data.cnn_images[
+        cnn_samples = data.cnn_samples[
             push_iter: push_iter+search_batch_size
         ]
         cnn_labels = data.cnn_labels[
@@ -351,7 +351,7 @@ def push_prototypes(
         start_index_of_search_batch = push_iter * search_batch_size # type: ignore
         _update_prototypes_on_batch(
             variable_proto_config,
-            cnn_images,
+            cnn_samples,
             start_index_of_search_batch,
             model_ddp,
             epoch_number,

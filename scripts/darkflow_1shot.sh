@@ -1,9 +1,9 @@
-# Call from the `torch` root:
-#    `./scripts/omniglot_1shot_v1.sh` with flags
-#    "--data_numpy_dir=<omniglot_cache> --train_log_dir=<output_path>"
+# Call from the project root directory:
+#    `./scripts/darkflow_1shot.sh` with flags
+#    "--data_numpy_dir=<darkflow_cache> --train_log_dir=<output_path>"
 # 
 # e.g.
-#    `nohup ./scripts/omniglot_1shot_v1.sh --data_dir=./data/omniglot --data_numpy_dir=./data/omniglot/cache --train_log_dir=./data/omniglot/logs/torch > omniglot.log 2>&1 &`
+#    `nohup ./scripts/darkflow_1shot.sh --data_dir=./data/darkflow --data_numpy_dir=./data/darkflow/cache --train_log_dir=./data/darkflow/logs/torch_1shot > darkflow_1shot.log 2>&1 &`
 # 
 python -m hypertor.train --num_layerwise_features=8 --default_num_channels=8 \
   --samples_transformer=20 --samples_cnn=60 --num_labels=20 --learning_rate=0.02 \
@@ -14,12 +14,12 @@ python -m hypertor.train --num_layerwise_features=8 --default_num_channels=8 \
   --shared_feature_extractor='3-layer-bn' --shared_input_dim=1 --shared_features_dim=32 \
   --shared_feature_extractor_padding=same --layerwise_generator=joint \
   --nolw_use_nonlinear_feature --lw_weight_allocation=output --nolw_generate_bias \
-  --nolw_generate_bn --nouse_decoder --noadd_trainable_weights --image_size=28 \
+  --nolw_generate_bn --nouse_decoder --noadd_trainable_weights --flows_shape=28 \
   --balanced_batches --per_label_augmentation --rotation_probability=0.0 \
   --boundary_probability=0.0 --smooth_probability=0.0 --contrast_probability=0.0 \
   --resize_probability=0.0 --negate_probability=0.0 --roll_probability=0.0 \
-  --angle_range=30.0 --random_rotate_by_90 --train_dataset='omniglot:0-1149' \
-  --test_dataset='omniglot:1200-1622' --eval_datasets='omniglot' \
+  --angle_range=30.0 --random_rotate_by_90 --train_dataset='darkflow:0-1149' \
+  --test_dataset='darkflow:1200-1622' --eval_datasets='darkflow' \
   --num_task_evals=1024 --num_eval_batches=16 --eval_batch_size=100 \
   --shuffle_labels_seed=2022 --test_rotation_probability=0.0 \
   --test_smooth_probability=0.0 --test_contrast_probability=0.0 \

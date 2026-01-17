@@ -969,7 +969,7 @@ class VariableProtoLayer(BaseCNNLayer):
         self.input_dim = 1
 
         # For variable prototype
-        self.input_size = model_config.image_size
+        self.input_size = model_config.flows_shape
         # [num_prototypes, num_channels, prototype_size, prototype_size]
         self.prototype_shape = model_config.prototype_shape
         self.num_prototypes = model_config.prototype_shape[0]
@@ -1720,9 +1720,9 @@ class LayerwiseModel(nn.Module):
 
     def forward(
         self,
-        transformer_images: torch.Tensor,
+        transformer_samples: torch.Tensor,
         transformer_labels: torch.Tensor,
-        cnn_images: torch.Tensor,
+        cnn_samples: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         mask_random_samples: bool = False,
         enable_fe_dropout: bool = False,
@@ -1739,7 +1739,7 @@ class LayerwiseModel(nn.Module):
               of this CNN?
         """
         weight_blocks: Optional["GeneratedWeights"] = self._train(
-            transformer_images,
+            transformer_samples,
             transformer_labels,
             mask,
             mask_random_samples=mask_random_samples
@@ -1751,7 +1751,7 @@ class LayerwiseModel(nn.Module):
             only_shared_feature=only_shared_feature,
         )
         if not only_shared_feature:
-            return self._evaluate(cnn_images, weight_blocks, training=deterministic_inference)
+            return self._evaluate(cnn_samples, weight_blocks, training=deterministic_inference)
         else:
             return weight_blocks
 

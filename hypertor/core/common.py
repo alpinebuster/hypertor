@@ -294,9 +294,9 @@ def train(
        batch_provider: Callable that returns a dict containing the inputs needed.
           Example return value for layerwise model:
             {
-              "support_images": Tensor(Bs, C, H, W),
+              "support_samples": Tensor(Bs, C, H, W),
               "support_labels": Tensor(Bs,),
-              "query_images": Tensor(Bq, C, H, W),
+              "query_samples": Tensor(Bq, C, H, W),
               "query_labels": Tensor(Bq,),
                 ...
             }
@@ -379,7 +379,7 @@ def train(
         total_loss = torch.tensor(0., device=device)
         if common_flags.PRETRAIN_SHARED_FEATURE.value:
             _ = state.model(
-                train_batch.transformer_images,
+                train_batch.transformer_samples,
                 train_batch.transformer_labels,
                 mask=train_batch.transformer_masks,
                 mask_random_samples=True,
@@ -394,9 +394,9 @@ def train(
             state.small_summaries["accuracy/shared_head_accuracy"] = shared_head_acc
         else:
             predictions = state.model(
-                train_batch.transformer_images,
+                train_batch.transformer_samples,
                 train_batch.transformer_labels,
-                train_batch.cnn_images,
+                train_batch.cnn_samples,
                 mask=train_batch.transformer_masks,
                 mask_random_samples=True,
                 enable_fe_dropout=True,
@@ -683,9 +683,9 @@ def train(
             state.model.eval()
             with torch.no_grad():
                 test_predictions = state.model(
-                    test_batch.transformer_images,
+                    test_batch.transformer_samples,
                     test_batch.transformer_labels,
-                    test_batch.cnn_images,
+                    test_batch.cnn_samples,
                     mask=test_batch.transformer_masks,
                     deterministic_inference=False,
                 )

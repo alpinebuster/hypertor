@@ -195,9 +195,9 @@ def _random_crop_and_resize(
     )
     return _crop_and_resize(images, bboxes, target_size, methods)
 
-def augment_images(
+def augment_samples(
     images: torch.Tensor,
-    image_size: int | Tuple[int, int],
+    flows_shape: int | Tuple[int, int],
     augment_individually: bool = False,
     hue_delta: Optional[float] = None,
     brightness_delta: Optional[float] = None,
@@ -205,7 +205,7 @@ def augment_images(
     min_crop_fraction: Optional[float] = None,
 ) -> torch.Tensor:
     """Standard image augmentation. Input / output range: [-1, 1]"""
-    assert image_size is not None
+    assert flows_shape is not None
 
     if hue_delta is None:
         hue_delta = HUE_MAX_DELTA
@@ -244,20 +244,20 @@ def augment_images(
     images = images.float()/128.0 - 1.0
     return _random_crop_and_resize(
         images,
-        image_size,
+        flows_shape,
         min_crop_fraction=min_crop_fraction,
     )
 
 
 def get_dataset_info(dataset_name: str) -> DatasetInfo:
     """Returns basic information about the dataset."""
-    if dataset_name == "emnist":
+    if dataset_name == "darkflow":
         return DatasetInfo(
-            num_labels=62, num_samples_per_label=1500, transpose_images=True
+            num_labels=62, num_samples_per_label=1500, transpose_samples=True
         )
     elif dataset_name == "omniglot":
         return DatasetInfo(
-            num_labels=1623, num_samples_per_label=20, transpose_images=False
+            num_labels=1623, num_samples_per_label=20, transpose_samples=False
         )
     else:
         raise ValueError(f'Dataset "{dataset_name}" is not supported.')
@@ -265,7 +265,7 @@ def get_dataset_info(dataset_name: str) -> DatasetInfo:
 
 @dataclasses.dataclass
 class RandomizedAugmentationConfig:
-    """Specification of random augmentations applied to the images."""
+    """Specification of random augmentations applied to the samples."""
 
     rotation_probability: float = 0.5
     smooth_probability: float = 0.3
@@ -660,8 +660,8 @@ class TaskGenerator:
         # Here, a full-batch random shuffle is performed, followed by the subsequent steps:
         # 
         #   ```python
-        #   transformer_images = images[:transformer_samples]
-        #   cnn_images = images[transformer_samples:]
+        #   transformer_samples = images[:transformer_samples]
+        #   cnn_samples = images[transformer_samples:]
         #   ```
         # 
         # When splitting by "location",
@@ -682,9 +682,9 @@ class HTDataset(Dataset):
        assert batch_size % num_labels == 0
        repetitions = batch_size // num_labels
 
-       # (batch_size, channels, image_size, image_size)
+       # (batch_size, channels, flows_shape, flows_shape)
        images = np.zeros(
-           (batch_size, channels, image_size, image_size),
+           (batch_size, channels, flows_shape, flows_shape),
            dtype=np.float32,
        )
        # [0,1,..,num_labels, ..., 0,1,..,num_labels]

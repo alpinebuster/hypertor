@@ -22,7 +22,7 @@ from hypertor.core import util
 # to fix Transformer batch and update it only occasionally.
 #
 # This is done in `make_train_samples` that returns:
-# (a) cached Transformer images (or original tensor if `same_batch` is False);
+# (a) cached Transformer samples (or original tensor if `same_batch` is False);
 # (b) cached Transformer labels;
 TrainSamples = Tuple[torch.Tensor, torch.Tensor]
 
@@ -115,7 +115,7 @@ def evaluate_dataset(
             np.random.shuffle(custom_labels)
 
         task_batch = batch_provider().to(device)
-        cached_transformer_images = task_batch.transformer_images
+        cached_transformer_samples = task_batch.transformer_samples
         cached_transformer_labels = task_batch.transformer_labels
         cached_transformer_masks = task_batch.transformer_masks
 
@@ -123,10 +123,10 @@ def evaluate_dataset(
         for _ in range(eval_config.num_eval_batches):
             eval_batch = batch_provider().to(device)
             outputs: common.ModelOutputs = make_outputs_fn(
-                transformer_images=cached_transformer_images,
+                transformer_samples=cached_transformer_samples,
                 transformer_labels=cached_transformer_labels,
                 transformer_masks=cached_transformer_masks,
-                cnn_images=eval_batch.cnn_images,
+                cnn_samples=eval_batch.cnn_samples,
                 cnn_labels=eval_batch.cnn_labels,
             )
             accs.append(outputs.accuracy.item())
@@ -151,17 +151,17 @@ def evaluate_dataset(
 
 def apply_layerwise_model(
     model: layerwise.LayerwiseModel,
-    transformer_images: torch.Tensor,
+    transformer_samples: torch.Tensor,
     transformer_labels: torch.Tensor,
     transformer_masks: Optional[torch.Tensor],
-    cnn_images: torch.Tensor,
+    cnn_samples: torch.Tensor,
     cnn_labels: torch.Tensor,
 ) -> common.ModelOutputs:
     """Applies a layerwise model to a dataset."""
     predictions: torch.Tensor = model(
-        transformer_images,
+        transformer_samples,
         transformer_labels,
-        cnn_images,
+        cnn_samples,
         mask=transformer_masks,
     )
 

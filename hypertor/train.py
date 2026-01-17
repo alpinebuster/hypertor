@@ -78,7 +78,7 @@ def _common_model_config():
         "num_transformer_samples": FLAGS.samples_transformer,
         "num_cnn_samples": FLAGS.samples_cnn,
         "num_labels": FLAGS.num_labels,
-        "image_size": util.normalize_image_size(FLAGS.image_size),
+        "flows_shape": util.normalize_flows_size(FLAGS.flows_shape),
         "cnn_model_name": FLAGS.cnn_model_name,
         "embedding_dim": FLAGS.embedding_dim,
         "cnn_dropout_rate": FLAGS.cnn_dropout_rate,
@@ -172,8 +172,8 @@ def make_dataset_config(dataset_spec=""):
         cache_path=FLAGS.data_numpy_dir,
         balanced_batches=FLAGS.balanced_batches,
         shuffle_labels_seed=FLAGS.shuffle_labels_seed,
-        apply_image_augmentations=FLAGS.apply_image_augmentations,
-        augment_individually=FLAGS.augment_images_individually,
+        apply_sample_augmentations=FLAGS.apply_sample_augmentations,
+        augment_individually=FLAGS.augment_samples_individually,
         num_unlabeled_per_class=FLAGS.unlabeled_samples_per_class,
     )
 
@@ -214,7 +214,7 @@ def make_test_dataset_config(dataset_spec=""):
         balanced_batches=FLAGS.balanced_batches,
         shuffle_labels_seed=FLAGS.shuffle_labels_seed,
         cache_path=FLAGS.data_numpy_dir,
-        apply_image_augmentations=False,
+        apply_sample_augmentations=False,
         num_unlabeled_per_class=FLAGS.unlabeled_samples_per_class,
     )
 
@@ -241,7 +241,7 @@ def create_layerwise_model(
     # Use `torch.no_grad()` to avoid constructing unnecessary gradient graphs
     with torch.no_grad():
         model.setup(
-            dataset.transformer_images,
+            dataset.transformer_samples,
             dataset.transformer_labels,
             mask=dataset.transformer_masks,
             mask_random_samples=True,
@@ -263,7 +263,7 @@ def create_shared_feature_model(
     dataset: common_ht.DatasetSamples,
     optim_config: common.OptimizerConfig,
 ):
-    """Creates an image feature extractor model for pre-training."""
+    """Creates an flow feature extractor model for pre-training."""
     logging.info(f"{util.get_ddp_msg()}Building the model...")
 
     model = layerwise.build_model(
@@ -273,7 +273,7 @@ def create_shared_feature_model(
     )
     with torch.no_grad():
         model.setup(
-            dataset.transformer_images,
+            dataset.transformer_samples,
             dataset.transformer_labels,
             dataset.transformer_masks,
             mask_random_samples=True,
@@ -506,7 +506,7 @@ def train(
 
             layer_filter_sizes, layer_strides, layer_paddings = state.model.conv_info()
             proto_layer_rf_info = compute_proto_layer_rf_info(
-                input_size=model_config.image_size,
+                input_size=model_config.flows_shape,
                 layer_filter_sizes=layer_filter_sizes,
                 layer_strides=layer_strides,
                 layer_paddings=layer_paddings,

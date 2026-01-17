@@ -12,13 +12,13 @@ from hypertor.core import datasets
 # ------------------------------------------------------------
 
 
-def _make_data(batch_size: int, channels: int, image_size: int, num_labels: int) -> dict[int, np.ndarray]:
+def _make_data(batch_size: int, channels: int, flows_shape: int, num_labels: int) -> dict[int, np.ndarray]:
     assert batch_size % num_labels == 0
     repetitions = batch_size // num_labels
 
-    # (batch_size, channels, image_size, image_size)
+    # (batch_size, channels, flows_shape, flows_shape)
     images = np.zeros(
-        (batch_size, channels, image_size, image_size),
+        (batch_size, channels, flows_shape, flows_shape),
         dtype=np.float32,
     )
     # [0,1,..,num_labels, ..., 0,1,..,num_labels]
@@ -37,19 +37,19 @@ def _make_data(batch_size: int, channels: int, image_size: int, num_labels: int)
     {
         "batch_size": 4,
         "channels": 1,
-        "image_size": 16,
+        "flows_shape": 16,
         "num_labels": 4,
     },
     {
         "batch_size": 10,
         "channels": 3,
-        "image_size": 32,
+        "flows_shape": 32,
         "num_labels": 5,
     },
     {
         "batch_size": 12,
         "channels": 8,
-        "image_size": 64,
+        "flows_shape": 64,
         "num_labels": 6,
     },
 ])
@@ -60,10 +60,10 @@ def data_params(request):
 def test_make_numpy_data(data_params):
     batch_size = data_params["batch_size"]
     channels = data_params["channels"]
-    image_size = data_params["image_size"]
+    flows_shape = data_params["flows_shape"]
     num_labels = data_params["num_labels"]
 
-    data = _make_data(batch_size, channels, image_size, num_labels)
+    data = _make_data(batch_size, channels, flows_shape, num_labels)
 
     samples_per_label = batch_size // num_labels
     assert list(data.keys()) == list(range(num_labels))
@@ -74,10 +74,10 @@ def test_gen_get_batch(data_params):
     """Tests image and label generation in the `TaskGenerator`."""
     batch_size = data_params["batch_size"]
     channels = data_params["channels"]
-    image_size = data_params["image_size"]
+    flows_shape = data_params["flows_shape"]
     num_labels = data_params["num_labels"]
 
-    data = _make_data(batch_size, channels, image_size, num_labels)
+    data = _make_data(batch_size, channels, flows_shape, num_labels)
     gen = datasets.TaskGenerator(data, num_labels)
 
     aug_config = datasets.AugmentationConfig(
@@ -97,7 +97,7 @@ def test_gen_get_batch(data_params):
     assert isinstance(labels, torch.Tensor)
     assert isinstance(classes, torch.Tensor)
 
-    assert images.shape == (batch_size, channels, image_size, image_size)
+    assert images.shape == (batch_size, channels, flows_shape, flows_shape)
     assert labels.shape == (batch_size,)
     assert classes.shape == (batch_size,)
 

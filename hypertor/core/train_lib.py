@@ -76,7 +76,7 @@ def _load_cache(data_config: DatasetConfig) -> Optional[dict[int, np.ndarray]]:
         output = {}
         index = 0
         for name in sorted(names):
-            # Each file contains a list of image sets for different labels.
+            # Each file contains a list of sample sets for different labels.
             # File names are sorted to keep a proper label order.
             with open(os.path.join(folder, name), "rb") as data_file:
                 file_records = np.load(data_file, allow_pickle=True)
@@ -123,7 +123,7 @@ def make_numpy_array(
             batch_size=batch_size,
             num_labels=dataset_info.num_labels,
             samples_per_label=dataset_info.num_samples_per_label,
-            transpose=dataset_info.transpose_images,
+            transpose=dataset_info.transpose_samples,
         )
     assert output is not None
     if data_config.shuffle_labels_seed > 0:
@@ -136,7 +136,7 @@ def make_numpy_array(
     return output
 
 
-def _resize(imgs: torch.Tensor, image_size: tuple[int, int]) -> torch.Tensor:
+def _resize(imgs: torch.Tensor, flows_shape: tuple[int, int]) -> torch.Tensor:
     if imgs.dim() == 2: # HW
         imgs = imgs.unsqueeze(0).unsqueeze(0)
     elif imgs.dim() == 3:
@@ -150,7 +150,7 @@ def _resize(imgs: torch.Tensor, image_size: tuple[int, int]) -> torch.Tensor:
 
     return F.interpolate(
         imgs,
-        size=image_size,
+        size=flows_shape,
         mode="bilinear",
         align_corners=False,
     )
@@ -159,7 +159,7 @@ def _resize(imgs: torch.Tensor, image_size: tuple[int, int]) -> torch.Tensor:
 def _make_dataset_helper_unbalanced(
     numpy_arr: dict[int, np.ndarray],
     batch_size: int,
-    image_size: tuple[int, int],
+    flows_shape: tuple[int, int],
     num_labels: int,
     data_config: DatasetConfig,
     always_same_labels=False,
@@ -177,17 +177,17 @@ def _make_dataset_helper_unbalanced(
         always_same_labels=always_same_labels,
     )
     config.randomize()
-    images, labels, classes = gen.get_batch(
+    samples, labels, classes = gen.get_batch(
         batch_size=batch_size,
         config=config,
         num_unlabeled_per_class=data_config.num_unlabeled_per_class,
     )
 
-    if image_size is not None:
-        images = _resize(images, image_size)
-    images = images / 128.0 - 1.0
+    if flows_shape is not None:
+        samples = _resize(samples, flows_shape)
+    samples = samples / 128.0 - 1.0
 
-    sample: datasets.SupervisedSample = (images, labels, classes)
+    sample: datasets.SupervisedSample = (samples, labels, classes)
     return sample
 
 
@@ -195,7 +195,7 @@ def _make_dataset_helper_balanced(
     numpy_arr: dict[int, np.ndarray],
     batch_sizes: list[int],
     num_unlabeled_per_class: list[int],
-    image_size,
+    flows_shape,
     num_labels: int,
     data_config: DatasetConfig,
     always_same_labels=False,
@@ -213,18 +213,18 @@ def _make_dataset_helper_balanced(
         always_same_labels=always_same_labels,
     )
     config.randomize()
-    images_labels = gen.get_batches(
+    samples_labels = gen.get_batches(
         batch_sizes=batch_sizes,
         config=config,
         num_unlabeled_per_class=num_unlabeled_per_class,
     )
     output: list[datasets.SupervisedSample] = []
-    for images, labels, classes in images_labels:
-        if image_size is not None:
-            images = _resize(images, image_size)
+    for samples, labels, classes in samples_labels:
+        if flows_shape is not None:
+            samples = _resize(samples, flows_shape)
         # [0, 255] → [0, 1.992] → [-1.0, 0.992]
-        images = images / 128.0 - 1.0
-        output.append((images, labels, classes))
+        samples = samples / 128.0 - 1.0
+        output.append((samples, labels, classes))
 
     return output
 
@@ -255,34 +255,34 @@ def _make_dataset_unbalanced(
     batch_size = model_config.num_transformer_samples
     batch_size += model_config.num_cnn_samples
 
-    assert len(model_config.image_size) == 2
+    assert len(model_config.flows_shape) == 2
     sample = _make_dataset_helper_unbalanced(
         numpy_arr=numpy_arr,
         batch_size=batch_size,
-        image_size=model_config.image_size,
+        flows_shape=model_config.flows_shape,
         num_labels=model_config.num_labels,
         data_config=data_config,
         always_same_labels=not shuffle_labels,
     )
-    images, labels, classes = sample
+    samples, labels, classes = sample
 
-    transformer_samples = model_config.num_transformer_samples
-    transformer_images = images[:transformer_samples]
-    if len(transformer_images.shape) == 3:
-        transformer_images = transformer_images.unsqueeze(dim=-3)
-    cnn_images = images[transformer_samples:]
-    if len(cnn_images.shape) == 3:
-        cnn_images = cnn_images.unsqueeze(dim=-3)
+    num_transformer_samples = model_config.num_transformer_samples
+    transformer_samples = samples[:num_transformer_samples]
+    if len(transformer_samples.shape) == 3:
+        transformer_samples = transformer_samples.unsqueeze(dim=-3)
+    cnn_samples = samples[num_transformer_samples:]
+    if len(cnn_samples.shape) == 3:
+        cnn_samples = cnn_samples.unsqueeze(dim=-3)
 
     real_class_min, real_class_max = _get_class_bounds(data_config)
 
     return common_ht.DatasetSamples(
-        transformer_images=transformer_images,
-        transformer_labels=labels[:transformer_samples],
-        transformer_real_classes=classes[:transformer_samples],
-        cnn_images=cnn_images,
-        cnn_labels=labels[transformer_samples:],
-        cnn_real_classes=classes[transformer_samples:],
+        transformer_samples=transformer_samples,
+        transformer_labels=labels[:num_transformer_samples],
+        transformer_real_classes=classes[:num_transformer_samples],
+        cnn_samples=cnn_samples,
+        cnn_labels=labels[num_transformer_samples:],
+        cnn_real_classes=classes[num_transformer_samples:],
         real_class_min=real_class_min,
         real_class_max=real_class_max,
     )
@@ -313,28 +313,28 @@ def _make_dataset_balanced(
         numpy_arr=numpy_arr,
         batch_sizes=batch_sizes,
         num_unlabeled_per_class=num_unlabeled_per_class,
-        image_size=model_config.image_size,
+        flows_shape=model_config.flows_shape,
         num_labels=model_config.num_labels,
         data_config=data_config,
         always_same_labels=not shuffle_labels,
     )
 
-    transformer_images, transformer_labels, transformer_classes = batches[0]
-    cnn_images, cnn_labels, cnn_classes = batches[1]
+    transformer_samples, transformer_labels, transformer_classes = batches[0]
+    cnn_samples, cnn_labels, cnn_classes = batches[1]
 
     # BCHW
-    if len(transformer_images.shape) == 3:
-        transformer_images = transformer_images.unsqueeze(dim=-3)
-    if len(cnn_images.shape) == 3:
-        cnn_images = cnn_images.unsqueeze(dim=-3)
+    if len(transformer_samples.shape) == 3:
+        transformer_samples = transformer_samples.unsqueeze(dim=-3)
+    if len(cnn_samples.shape) == 3:
+        cnn_samples = cnn_samples.unsqueeze(dim=-3)
 
     real_class_min, real_class_max = _get_class_bounds(data_config)
 
     return common_ht.DatasetSamples(
-        transformer_images=transformer_images,
+        transformer_samples=transformer_samples,
         transformer_labels=transformer_labels,
         transformer_real_classes=transformer_classes,
-        cnn_images=cnn_images,
+        cnn_samples=cnn_samples,
         cnn_labels=cnn_labels,
         cnn_real_classes=cnn_classes,
         real_class_min=real_class_min,
@@ -365,7 +365,7 @@ def make_dataset(
           CNN: [2, 2, 2, 4, 4]
     """
     augment = functools.partial(
-        datasets.augment_images,
+        datasets.augment_samples,
         augment_individually=data_config.augment_individually,
     )
 
@@ -381,13 +381,13 @@ def make_dataset(
         data_config=data_config,
         **kwargs,
     )
-    if data_config.apply_image_augmentations:
-        assert model_config.image_size is not None
-        image_size = model_config.image_size
+    if data_config.apply_sample_augmentations:
+        assert model_config.flows_shape is not None
+        flows_shape = model_config.flows_shape
         output = dataclasses.replace(
             output,
-            transformer_images=augment(output.transformer_images, image_size),
-            cnn_images=augment(output.cnn_images, image_size),
+            transformer_samples=augment(output.transformer_samples, flows_shape),
+            cnn_samples=augment(output.cnn_samples, flows_shape),
         )
 
     return output

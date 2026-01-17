@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class DatasetInfo:
     num_labels: int
     num_samples_per_label: Optional[int]
-    transpose_images: bool = False
+    transpose_samples: bool = False
 
 
 @dataclasses.dataclass
@@ -48,7 +48,7 @@ class DatasetConfig:
     roll_probability: float = 0.0
     angle_range: float = 180.0
     rotate_by_90: bool = False
-    apply_image_augmentations: bool = False
+    apply_sample_augmentations: bool = False
     augment_individually: bool = False
 
 
@@ -60,8 +60,8 @@ class ModelConfig:
     num_labels: int = 4
     embedding_dim: int = 8
 
-    # Samples and images
-    image_size: tuple[int, int] = (28, 28)
+    # Samples
+    flows_shape: tuple[int, int] = (28, 28)
     num_transformer_samples: int = 32
     num_cnn_samples: int = 128
 
@@ -195,23 +195,23 @@ class LayerwiseModelConfig(ModelConfig):
     ] = "log"
 
     def __post_init__(self):
-        if self.image_size is None:
-            self.image_size = (1, 1)
-        elif isinstance(self.image_size, int):
-            self.image_size = (self.image_size, self.image_size)
-        elif isinstance(self.image_size, (list, tuple)):
-            if len(self.image_size) == 1:
-                self.image_size = (self.image_size[0], self.image_size[0])
-            elif len(self.image_size) >= 2:
-                self.image_size = (self.image_size[0], self.image_size[1])
+        if self.flows_shape is None:
+            self.flows_shape = (1, 1)
+        elif isinstance(self.flows_shape, int):
+            self.flows_shape = (self.flows_shape, self.flows_shape)
+        elif isinstance(self.flows_shape, (list, tuple)):
+            if len(self.flows_shape) == 1:
+                self.flows_shape = (self.flows_shape[0], self.flows_shape[0])
+            elif len(self.flows_shape) >= 2:
+                self.flows_shape = (self.flows_shape[0], self.flows_shape[1])
             else:
                 raise ValueError(
-                    f"image_size list/tuple must have length 1, 2 or 3+, "
-                    f"got {len(self.image_size)}: {self.image_size!r}"
+                    f"flows_shape list/tuple must have length 1, 2 or 3+, "
+                    f"got {len(self.flows_shape)}: {self.flows_shape!r}"
                 )
         else:
             raise TypeError(
-                f"`image_size` must be int, list or tuple, got {type(self.image_size).__name__}"
+                f"`flows_shape` must be int, list or tuple, got {type(self.flows_shape).__name__}"
             )
 
 
@@ -219,9 +219,9 @@ class LayerwiseModelConfig(ModelConfig):
 class DatasetSamples:
     """Dataset samples."""
 
-    transformer_images: torch.Tensor # Support set
+    transformer_samples: torch.Tensor # Support set
     transformer_labels: torch.Tensor
-    cnn_images: torch.Tensor # Query set
+    cnn_samples: torch.Tensor # Query set
     cnn_labels: torch.Tensor
     transformer_real_classes: Optional[torch.Tensor] = None
     cnn_real_classes: Optional[torch.Tensor] = None
