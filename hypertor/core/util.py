@@ -688,31 +688,15 @@ def make_optimizer(
     optim_config: "common.OptimizerConfig",
     model: nn.Module,
 ) -> tuple[Optimizer, LRScheduler]:
-    # AdamW lr -> 1e-4
-    # SGD lr   -> 1e-5 ~ 1e-6
     optimizer = torch.optim.AdamW(
         params=model.parameters(),
-        lr=optim_config.learning_rate/100,
+        lr=optim_config.learning_rate,
     )
-    # optimizer = torch.optim.SGD(
-    #     params=model.parameters(),
-    #     lr=optim_config.learning_rate,
-    #     # momentum=optim_config.learning_momentum,
-    # )
-
-    # scheduler = torch.optim.lr_scheduler.StepLR(
-    #     optimizer,
-    #     step_size=optim_config.lr_decay_steps,
-    #     gamma=optim_config.lr_decay_rate,
-    # )
-    scheduler = torch.optim.lr_scheduler.LambdaLR(
+    scheduler = torch.optim.lr_scheduler.StepLR(
         optimizer,
-        lr_lambda=lambda step: (
-            optim_config.lr_decay_rate
-            ** (step / optim_config.lr_decay_steps)
-        ),
+        step_size=optim_config.lr_decay_steps,
+        gamma=optim_config.lr_decay_rate,
     )
-
     return optimizer, scheduler
 
 

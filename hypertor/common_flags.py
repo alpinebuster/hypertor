@@ -12,10 +12,10 @@ flags.DEFINE_integer(
     "First N labels to use for training "
     "(overwritten by `train_dataset` label specification).",
 )
-flags.DEFINE_float("learning_rate", 1e-3, "Learning rate.")
-flags.DEFINE_float("learning_momentum", .9, "Learning momentum.")
+flags.DEFINE_float("learning_rate", 5e-4, "Learning rate.")
 flags.DEFINE_float("learning_rate_decay_steps", 10000, "Learning rate decay steps.")
-flags.DEFINE_float("learning_rate_decay_rate", 1.0, "Learning rate decay rate.")
+flags.DEFINE_float("learning_rate_decay_rate", 0.35, "Learning rate decay rate.")
+flags.DEFINE_float("learning_momentum", .9, "Learning momentum.")
 flags.DEFINE_integer("train_steps", 10000, "Number of training steps.")
 flags.DEFINE_string(
     "data_numpy_dir",
