@@ -454,7 +454,14 @@ def train(
                 add_scalar_ddp("accuracy/shared_head_accuracy", shared_head_acc[-1])
 
             # Variable prototype
-            if model_config.use_variable_proto:
+            if model_config.use_variable_proto and (
+                # NOTE: WARMUP first before using variable prototype!!!
+                state.global_step > max(
+                    5000,
+                    variable_proto_config.push_start,
+                    variable_proto_config.warm_epochs,
+                )
+            ):
                 p_layer = unwrapped_model.layers[-2]
                 assert isinstance(p_layer, layerwise.VariableProtoLayer)
                 last_layer = unwrapped_model.layers[-1]
@@ -468,14 +475,7 @@ def train(
                 assert p_class_identity is not None
                 coefs = variable_proto_config
 
-                if model_config.use_class_specific and (
-                    # NOTE: WARMUP first before using variable prototype!!!
-                    state.global_step+step_updated > max(
-                        5000,
-                        variable_proto_config.push_start/2,
-                        variable_proto_config.warm_epochs,
-                    )
-                ):
+                if model_config.use_class_specific:
                     # The maximum difference per pixel is 1 (feature map normalized)
                     # There are a total of C×H×W positions
                     max_dist = (
