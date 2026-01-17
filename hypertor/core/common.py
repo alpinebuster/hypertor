@@ -639,9 +639,9 @@ def train(
                 if i % variable_proto_config.push_freq == 0
             ]
             if (
-                state.global_step+step_updated >= variable_proto_config.push_start
+                state.global_step >= variable_proto_config.push_start
             ) and (
-                state.global_step+step_updated in push_epochs
+                state.global_step in push_epochs
             ):
                 assert state.vp_state is not None
                 (

@@ -409,7 +409,7 @@ def push_prototypes(
     # When the epoch is >= 100 in the later stage, the prototypes will be fixed and no longer increase dynamically.
     if epoch_number < variable_proto_config.push_start+variable_proto_config.push_freq*50:
         logging.info(
-            f"{util.get_ddp_msg()}Epoch: {epoch_number}"
+            f"{util.get_ddp_msg()}Step Updated: {epoch_number}"
         )
 
         num_protos_class = proto_layer.prototype_ids_per_class
@@ -488,7 +488,7 @@ def push_prototypes(
 
     end = time.time()
     logging.info(
-        f"{util.get_ddp_msg()}Push time: {end - start}, update_kurt: {update_kurt}"
+        f"{util.get_ddp_msg()}Push Time: {end - start}, update_kurt: {update_kurt}"
     )
     return (
         update_kurt,
