@@ -453,9 +453,9 @@ def train(
         prototype_ids_per_class = None
 
     # Train the model with new prototypes
-    update_prototype_vectors = True
+    update_kurt = True
     updating_vp = False
-    while update_prototype_vectors:
+    while update_kurt:
         logging.info(f"{util.get_ddp_msg()}Start Training...")
 
         _args = {
@@ -520,7 +520,7 @@ def train(
             model_config.proto_layer_rf_info = proto_layer_rf_info
 
         (
-            update_prototype_vectors,
+            update_kurt,
             step_updated,
             prototype_shape,
             prototype_class_identity,

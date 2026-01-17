@@ -342,7 +342,7 @@ def train(
     if model_config.use_variable_proto:
         assert state.vp_state is not None
         step_updated = state.vp_state.step_updated
-    update_prototype_vectors = False
+    update_kurt = False
     p_shape = None
     p_class_identity = None
     p_ids_per_class = None
@@ -645,7 +645,7 @@ def train(
             ):
                 assert state.vp_state is not None
                 (
-                    update_prototype_vectors,
+                    update_kurt,
                     p_shape,
                     p_class_identity,
                     p_ids_per_class,
@@ -663,7 +663,7 @@ def train(
                     percentile=99,
                 )
 
-                if update_prototype_vectors:
+                if update_kurt:
                     step_updated += state.global_step
 
                     assert state.vp_state is not None
@@ -722,12 +722,12 @@ def train(
 
         state.global_step += 1
 
-    if not update_prototype_vectors:
+    if not update_kurt:
         # Final save
         state.save()
 
     return (
-        update_prototype_vectors,
+        update_kurt,
         step_updated,
         p_shape,
         p_class_identity,

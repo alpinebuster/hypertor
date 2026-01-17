@@ -488,7 +488,7 @@ def push_prototypes(
 
     end = time.time()
     logging.info(
-        f"{util.get_ddp_msg()}Push time: {end - start}"
+        f"{util.get_ddp_msg()}Push time: {end - start}, update_kurt: {update_kurt}"
     )
     return (
         update_kurt,
