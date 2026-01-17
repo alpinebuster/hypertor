@@ -713,7 +713,8 @@ def train(
             train_config.steps_between_saves > 0 and
             state.global_step % train_config.steps_between_saves == 0
         ):
-            state.save()
+            if not update_kurt:
+                state.save()
 
         if state.global_step % train_config.small_summaries_every == 0:
             add_scalars_ddp(state.small_summaries)
