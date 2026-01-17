@@ -486,7 +486,7 @@ def train(
 
                     # Calculate cluster cost
                     # (batch_size, num_prototypes)
-                    prototypes_of_correct_class = torch.t(
+                    p_of_correct_class = torch.t(
                         # prototype_class_identity -> (num_prototypes, num_classes)
                         # pred_labels -> (batch_size,)
                         #       ↓
@@ -496,28 +496,30 @@ def train(
                     # The larger the score in the similarity style, the better,
                     # so the distance must be reversed
                     inverted_distances, _ = torch.max(
-                        (max_dist-min_distances) * prototypes_of_correct_class,
+                        (max_dist-min_distances) * p_of_correct_class,
                         dim=1,
                     )
                     cluster_cost = torch.mean(max_dist - inverted_distances)
                     add_scalar_ddp("loss/cluster_cost", cluster_cost)
 
                     # Calculate separation cost
-                    prototypes_of_wrong_class = 1 - prototypes_of_correct_class
-                    inverted_distances_to_nontarget_prototypes, _ = torch.max(
-                        (max_dist - min_distances) * prototypes_of_wrong_class,
+                    p_of_wrong_class = 1 - p_of_correct_class
+                    inverted_dists_to_nontarget_p, _ = torch.max(
+                        (max_dist-min_distances) * p_of_wrong_class,
                         dim=1,
                     )
                     separation_cost = torch.mean(
-                        max_dist - inverted_distances_to_nontarget_prototypes
+                        max_dist - inverted_dists_to_nontarget_p
                     )
                     add_scalar_ddp("loss/separation_cost", separation_cost)
 
                     # Calculate avg cluster cost
                     avg_separation_cost = torch.sum(
-                        min_distances * prototypes_of_wrong_class, dim=1
-                    ) / torch.sum(prototypes_of_wrong_class, dim=1)
+                        min_distances * p_of_wrong_class, dim=1
+                    ) / torch.sum(p_of_wrong_class, dim=1)
                     avg_separation_cost = torch.mean(avg_separation_cost)
+                    # Larger → The sample as a whole deviates from error prototypes → Good
+                    # Smaller → Closer to error prototypes → Bad
                     add_scalar_ddp("loss/avg_separation_cost", avg_separation_cost)
 
                     # Prototypes L2 regularization
@@ -540,16 +542,24 @@ def train(
                     if coefs is not None:
                         total_loss = (
                             float(coefs.coef_cross_entropy) * total_loss
+                            # The smaller the `cluster_cost`, the better the intra-class clustering
                             + float(coefs.coef_cluster_cost) * cluster_cost
-                            + float(coefs.coef_separation_cost) * separation_cost # type: ignore
+                            # The bigger the better
+                            # `coef_separation_cost` is negative
+                            + float(coefs.coef_separation_cost) * separation_cost
+                            # Prevent prototype value explosion, promoting smoother and more compact prototypes;
+                            # the smaller, the better.
                             + float(coefs.coef_reg_protos) * l21
+                            # Penalty for the connection between prototypes and error categories
+                            # Encourage prototypes to have strong connections only to their own category, while connections to other categories approach zero
+                            # The smaller, the better
                             + float(coefs.coef_reg_last) * l22
                         )
                     else:
                         total_loss = (
                             total_loss
                             + 0.8 * cluster_cost
-                            - 0.08 * separation_cost # type: ignore
+                            - 0.08 * separation_cost
                             + 1e-3 * l21
                             + 1e-4 * l22
                         )
@@ -579,6 +589,8 @@ def train(
                     p_avg_pair_dist = p_pair_dist[
                         ~torch.eye(p_pair_dist.size(0), dtype=torch.bool)
                     ].mean()
+                    # Large distances → prototypes are well separated
+                    # Small distances → prototypes collapse / become redundant
                     add_scalar_ddp("loss/p_avg_pair_dist", p_avg_pair_dist)
 
             state.small_summaries["loss/total_loss"] = total_loss
