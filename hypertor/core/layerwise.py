@@ -1401,6 +1401,7 @@ class ProtoLogitsLayer(LogitsLayer):
         separate_bn_variables: bool = False,
     ) -> torch.Tensor:
         # inputs -> [batch_size, num_prototypes]
+        # W -> [num_prototypes, num_classes]
         W = selected_weights["kernel"]
         assert W is not None
 

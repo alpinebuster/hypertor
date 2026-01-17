@@ -453,11 +453,9 @@ def train(
         prototype_ids_per_class = None
 
     # Train the model with new prototypes
-    change = True
+    update_prototype_vectors = True
     updating_vp = False
-    # Continuing with last pushing when `use_variable_proto` enabled
-    global_step_vp = 0
-    while change:
+    while update_prototype_vectors:
         logging.info(f"{util.get_ddp_msg()}Start Training...")
 
         _args = {
@@ -485,8 +483,6 @@ def train(
             )
         state = create_model(**_args)
 
-        if updating_vp:
-            state.global_step_vp = global_step_vp
         # This will update the values of state
         restored = common.init_training(state, updating_vp)
         if not restored:
@@ -524,8 +520,7 @@ def train(
             model_config.proto_layer_rf_info = proto_layer_rf_info
 
         (
-            change,
-            last_global_step_vp,
+            update_prototype_vectors,
             step_updated,
             prototype_shape,
             prototype_class_identity,
@@ -538,7 +533,6 @@ def train(
             state=state,
             batch_provider=(train_batch_provider, test_batch_provider),
         )
-        global_step_vp += last_global_step_vp
         updating_vp = True
         del state
         torch.cuda.empty_cache()

@@ -48,8 +48,6 @@ class TrainState:
     optimizer: torch.optim.Optimizer
     scheduler: Optional[torch.optim.lr_scheduler.LRScheduler]
     global_step: int = 0
-    # Track all steps after pushing
-    global_step_vp: int = 0
 
     # Variable prototype parameters
     vp_state: Optional["common_vp.VariableProtoState"] = None
@@ -65,13 +63,11 @@ class TrainState:
         if FLAGS.use_ddp and dist.get_rank() != 0:
             return
 
-        logging.info(
-            f"Saving checkpoint at step {self.global_step}, "
-            f"with global_step_vp: {self.global_step_vp}"
-        )
+        logging.info(f"Saving checkpoint at step {self.global_step}")
         os.makedirs(self.checkpoint_dir, exist_ok=True)
         if self.vp_state is not None:
-            pt_file_name = f"{self.checkpoint_suffix}-{self.vp_state.step_updated}-{self.global_step_vp}.pt"
+            logging.info(f"With step_updated: {self.vp_state.step_updated}")
+            pt_file_name = f"{self.checkpoint_suffix}-{self.global_step}-{self.vp_state.step_updated}.pt"
         else:
             pt_file_name = f"{self.checkpoint_suffix}-{self.global_step}.pt"
         path = os.path.join(
@@ -286,7 +282,6 @@ def train(
 ) -> tuple[
     bool,
     int,
-    int,
     Optional[tuple[int, int, int, int]],
     Optional[torch.Tensor],
     Optional[dict[int, list[int]]],
@@ -347,16 +342,21 @@ def train(
     if model_config.use_variable_proto:
         assert state.vp_state is not None
         step_updated = state.vp_state.step_updated
-    change = False
+    update_prototype_vectors = False
     p_shape = None
     p_class_identity = None
     p_ids_per_class = None
 
     starting_time = time.time()
     while state.global_step <= train_config.train_steps-step_updated:
+        if state.vp_state is not None:
+            writer_name = f"train-{step_updated}"
+        else:
+            writer_name = "train"
         add_scalar = functools.partial(
             state.summary_writer.add_scalar,
             global_step=state.global_step,
+            writer_name=writer_name,
         )
         add_scalar_ddp = functools.partial(
             util.add_scalar_ddp,
@@ -470,7 +470,7 @@ def train(
 
                 if model_config.use_class_specific and (
                     # NOTE: WARMUP first before using variable prototype!!!
-                    state.global_step > max(
+                    state.global_step+step_updated > max(
                         5000,
                         variable_proto_config.push_start/2,
                         variable_proto_config.warm_epochs,
@@ -529,11 +529,12 @@ def train(
                         # Punish the connections of the prototype to **incorrect** categories by using L2 regularization to make the cross-category connections -> 0
                         # Preserve the connections of the prototype to **correct** categories (without punishing)
                         # 
-                        # (num_prototypes, num_classes) -> (num_classes, num_prototypes)
+                        # p_class_identity -> [num_prototypes, num_classes] -> [num_classes, num_prototypes]
                         l2_mask = 1 - torch.t(p_class_identity).cuda()
-                        l22 = (last_layer.last_linear_weight * l2_mask).norm(p=2)
+                        # last_linear_weight -> [num_prototypes, num_classes] -> [num_classes, num_prototypes]
+                        l22 = (last_layer.last_linear_weight.t() * l2_mask).norm(p=2)
                     else:
-                        l22 = last_layer.last_linear_weight.norm(p=2)
+                        l22 = last_layer.last_linear_weight.t().norm(p=2)
                     add_scalar_ddp("loss/l22", l22)
 
                     if coefs is not None:
@@ -556,7 +557,7 @@ def train(
                     min_distance, _ = torch.min(min_distances, dim=1)
                     cluster_cost = torch.mean(min_distance)
                     l21 = p_vectors.norm(p=2)
-                    l22 = last_layer.last_linear_weight.norm(p=2)
+                    l22 = last_layer.last_linear_weight.t().norm(p=2)
 
                     add_scalar_ddp("loss/cluster_cost", cluster_cost)
                     add_scalar_ddp("loss/l21", l21)
@@ -630,8 +631,9 @@ def train(
             ) and (
                 state.global_step+step_updated in push_epochs
             ):
+                assert state.vp_state is not None
                 (
-                    change,
+                    update_prototype_vectors,
                     p_shape,
                     p_class_identity,
                     p_ids_per_class,
@@ -641,7 +643,7 @@ def train(
                     model_ddp=state.model,
                     prototype_layer_stride=1,
                     root_dir_for_saving_prototypes=os.path.join(state.checkpoint_dir, "prototypes"),
-                    epoch_number=state.global_step_vp,
+                    epoch_number=step_updated,
                     prototype_img_filename_prefix="prototype-img",
                     prototype_self_act_filename_prefix="prototype-self-act",
                     proto_bound_boxes_filename_prefix="bb",
@@ -649,7 +651,7 @@ def train(
                     percentile=99,
                 )
 
-                if change:
+                if update_prototype_vectors:
                     step_updated += state.global_step
 
                     assert state.vp_state is not None
@@ -708,12 +710,12 @@ def train(
 
         state.global_step += 1
 
-    # Final save
-    state.save()
+    if not update_prototype_vectors:
+        # Final save
+        state.save()
 
     return (
-        change,
-        state.global_step,
+        update_prototype_vectors,
         step_updated,
         p_shape,
         p_class_identity,
