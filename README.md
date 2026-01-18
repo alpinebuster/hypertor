@@ -60,6 +60,40 @@ The evaluation script accepts the same parameters as the training script.
 > DDP (DistributedDataParallel) Supports
 
 ```sh
+# (Optional)
+sudo sysctl -w vm.max_map_count=262144
+>>> vm.max_map_count = 262144
+cat /proc/sys/vm/max_map_count
+>>> 262144
+
+sudo sysctl -w vm.overcommit_memory=1
+>>> vm.overcommit_memory = 1
+sudo sysctl -w vm.overcommit_ratio=100
+>>> vm.overcommit_ratio = 100
+
+cat /proc/sys/vm/overcommit_memory
+>>> 1
+cat /proc/sys/vm/overcommit_ratio
+>>> 100
+
+swapon --show
+>>> NAME      TYPE SIZE USED PRIO
+>>> /swapfile file   2G   0B   -2
+sudo fallocate -l 32G /swapfile32
+sudo chmod 600 /swapfile32
+sudo mkswap /swapfile32
+>>> Setting up swapspace version 1, size = 32 GiB (34359734272 bytes)
+>>> no label, UUID=42979462-b31e-4ef1-8d2f-b0772f9e95ad
+sudo swapon /swapfile32
+swapon --show
+free -h
+sudo nano /etc/fstab # Add "/swapfile32 none swap sw 0 0" to it
+cat /proc/sys/vm/swappiness
+sudo sysctl -w vm.swappiness=10
+sudo nano /etc/sysctl.conf # Add "vm.swappiness=10" to it
+
+sudo slabtop
+
 # `nproc_per_node` -> Number of GPUs
 # `--` -> All the parameters that follow are not `torchrun` but passed to the python
 nohup torchrun --nproc_per_node=2 ./hypertor/train.py -- \
@@ -87,6 +121,8 @@ nohup torchrun --nproc_per_node=2 ./hypertor/train.py -- \
   --train_log_dir=./data/omniglot/logs/torch \
   --use_ddp \
   > omniglot_ddp.log 2>&1 &
+
+echo $?
 ```
 
 ### HyperTor
