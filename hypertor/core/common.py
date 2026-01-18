@@ -655,7 +655,7 @@ def train(
                     model_ddp=state.model,
                     prototype_layer_stride=1,
                     root_dir_for_saving_prototypes=os.path.join(state.checkpoint_dir, "prototypes"),
-                    epoch_number=step_updated,
+                    epoch_number=step_updated+state.global_step,
                     prototype_img_filename_prefix="prototype-img",
                     prototype_self_act_filename_prefix="prototype-self-act",
                     proto_bound_boxes_filename_prefix="bb",

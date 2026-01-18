@@ -484,7 +484,7 @@ class Encoder(nn.Module):
         mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """
-        x: [B, S, D]
+        x: [B, S, D] or [1, S, D]
         mask: Broadcastable to [B, H, S, S] (For MHA)
         """
         # Layer dropout only takes effect during the training stage

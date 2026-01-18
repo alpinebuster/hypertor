@@ -330,7 +330,8 @@ def push_prototypes(
     if root_dir_for_saving_prototypes != None:
         if epoch_number >= 0:
             proto_epoch_dir = os.path.join(
-                root_dir_for_saving_prototypes, "epoch-" + str(epoch_number)
+                root_dir_for_saving_prototypes,
+                f"step-{str(epoch_number)}",
             )
             os.makedirs(proto_epoch_dir, exist_ok=True)
         else:
@@ -488,7 +489,8 @@ def push_prototypes(
 
     end = time.time()
     logging.info(
-        f"{util.get_ddp_msg()}Push Time: {end - start}, update_kurt: {update_kurt}"
+        f"{util.get_ddp_msg()}Push Time: {end-start}, "
+        f"update_kurt: {update_kurt}"
     )
     return (
         update_kurt,

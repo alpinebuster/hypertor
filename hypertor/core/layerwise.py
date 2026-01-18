@@ -290,9 +290,13 @@ class JointGenerator(_Generator):
 
         assert isinstance(self.transformer_io, util.JointTransformerIO)
 
+        # [B, C, H, W] -> [B, feature_layers*feature_dim]
+        # [8, 16, 15, 15] -> [8, 64]
         features = self._features(
             input_tensor, shared_features, enable_fe_dropout=enable_fe_dropout
         )
+        # [B, feature_layers*feature_dim] -> [batch_size, feature_size+weight_embedding_dim+pad_size]
+        # [8, 64] -> [8, 256]
         features, transformer_embedding_size = self._pad_features(features)
 
         if self.transformer is None:
@@ -307,7 +311,11 @@ class JointGenerator(_Generator):
             )
         if mask is not None:
             mask = self.transformer_io.extend_label_mask(mask)
+
+        # [batch_size, feature_dim+pad_size] -> [num_weights + B, D_w + I_l]
+        # [8, 256] -> [17, 264]
         transformer_input = self.transformer_io.encode_samples(features, labels)
+        # Still [num_weights + B, D_w + I_l]
         transformer_output = self.transformer(transformer_input, mask=mask)
 
         return self.transformer_io.decode_weights(transformer_output)
@@ -1639,6 +1647,7 @@ class LayerwiseModel(nn.Module):
             all_weight_blocks.append(weight_blocks)
 
             # cnn
+            # [BCHW] -> [Bchw]
             inputs = layer.apply(
                 inputs,
                 weight_blocks=weight_blocks,

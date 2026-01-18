@@ -113,12 +113,12 @@ nohup torchrun --nproc_per_node=2 ./hypertor/train.py -- \
   --angle_range=30.0 --random_rotate_by_90 --train_dataset='omniglot:0-1149' \
   --test_dataset='omniglot:1200-1622' --eval_datasets='omniglot' \
   --num_task_evals=1024 --num_eval_batches=16 --eval_batch_size=100 \
-  --shuffle_labels_seed=2022 --test_rotation_probability=0.0 \
+  --shuffle_labels_seed=2026 --test_rotation_probability=0.0 \
   --test_smooth_probability=0.0 --test_contrast_probability=0.0 \
   --test_resize_probability=0.0 --test_negate_probability=0.0 \
   --test_roll_probability=0.0 --test_angle_range=-1.0 \
   --data_dir=./data/omniglot --data_numpy_dir=./data/omniglot/cache \
-  --train_log_dir=./data/omniglot/logs/torch \
+  --train_log_dir=./data/omniglot/logs/torch_ddp \
   --use_ddp \
   > omniglot_ddp.log 2>&1 &
 
