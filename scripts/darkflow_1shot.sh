@@ -6,8 +6,8 @@
 #    `nohup ./scripts/darkflow_1shot.sh --data_dir=./data/darkflow --data_numpy_dir=./data/darkflow/cache --train_log_dir=./data/darkflow/logs/torch_1shot > darkflow_1shot.log 2>&1 &`
 # 
 python -m hypertor.train --num_layerwise_features=8 --default_num_channels=8 \
-  --samples_transformer=20 --samples_cnn=60 --num_labels=20 --learning_rate=5e-4 \
-  --learning_rate_decay_steps=10000 --learning_rate_decay_rate=0.35 \
+  --samples_transformer=20 --samples_cnn=60 --num_labels=20 --learning_rate=5e-2 \
+  --learning_rate_decay_steps=100000 --learning_rate_decay_rate=0.95 \
   --train_steps=4000000 --steps_between_saves=1000 --lw_key_query_dim=1.0 \
   --lw_value_dim=1.0 --lw_inner_dim=1.0 --cnn_model_name='maxpool-4-layer' \
   --embedding_dim=32 --num_layers=3 --stride=1 --heads=2 \
@@ -26,4 +26,4 @@ python -m hypertor.train --num_layerwise_features=8 --default_num_channels=8 \
   --test_resize_probability=0.0 --test_negate_probability=0.0 \
   --test_roll_probability=0.0 --test_angle_range=-1.0 \
   --warmup_steps=0 --use_variable_proto --number_of_trained_cnn_layers=0 \
-  --push_start=36000 $@
+  --push_start=50000 $@
