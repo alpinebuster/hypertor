@@ -26,4 +26,4 @@ python -m hypertor.train --num_layerwise_features=8 --default_num_channels=8 \
   --test_resize_probability=0.0 --test_negate_probability=0.0 \
   --test_roll_probability=0.0 --test_angle_range=-1.0 \
   --warmup_steps=0 --use_variable_proto --number_of_trained_cnn_layers=0 \
-  --push_start=36000 $@
+  --push_start=50000 $@
