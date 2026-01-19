@@ -103,6 +103,7 @@ def test_number_of_trained_cnn_layers_param_should_give_trained_weights(layerwis
         model_config=model_config,
         dataset=dataset,
     )
+    model.joint()
     weights = model._train(dataset.transformer_samples, dataset.transformer_labels)
 
     # The first CNN layer is directly trained → no weights are generated
@@ -138,6 +139,7 @@ def test_negative_number_of_trained_cnn_layers_param_trains_last_layers(layerwis
         dataset=dataset,
     )
 
+    model.joint()
     weights = model._train(dataset.transformer_samples, dataset.transformer_labels)
 
     # The second-to-last layer is directly trained
