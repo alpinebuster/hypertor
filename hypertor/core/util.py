@@ -688,7 +688,7 @@ def make_optimizer(
     optim_config: "common.OptimizerConfig",
     model: nn.Module,
 ) -> tuple[Optimizer, LRScheduler]:
-    optimizer = torch.optim.SGD(
+    optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=optim_config.learning_rate,
     )

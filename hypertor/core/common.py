@@ -6,12 +6,11 @@ import os
 import time
 
 from typing import cast, TYPE_CHECKING, Callable, Optional, \
-    TypedDict, Union
-from typing_extensions import Annotated
+    Union
 
 from absl import flags, logging
-import numpy as np
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -46,7 +45,11 @@ class TrainState:
     """Model state."""
     model: Union["layerwise.LayerwiseModel", DDP]
     optimizer: torch.optim.Optimizer
+    joint_optimizer: torch.optim.Optimizer
+    warm_optimizer: torch.optim.Optimizer
+    last_layer_optimizer: torch.optim.Optimizer
     scheduler: Optional[torch.optim.lr_scheduler.LRScheduler]
+    joint_scheduler: Optional[torch.optim.lr_scheduler.LRScheduler]
     global_step: int = 0
 
     # Variable prototype parameters
@@ -269,11 +272,227 @@ def _make_loss(
     loss, warmup_weights = _make_warmup_loss(losses[:-1], losses[-1], global_step)
     return loss, losses, warmup_weights
 
+def _calculate_loss(
+    model_config: "common_ht.LayerwiseModelConfig",
+    variable_proto_config: "common_vp.ProtoTrainConfig",
+    state: TrainState,
+    current_batch: "common_ht.DatasetSamples",
+    unwrapped_model: "layerwise.LayerwiseModel",
+    predictions: torch.Tensor,
+    add_scalar_ddp: Callable[[str, torch.Tensor], None],
+) -> torch.Tensor:
+    heads = []
+    if model_config.train_heads:
+        outputs = unwrapped_model.layer_outputs.values()
+        # layer_outputs[layer.name] => (inputs, head)
+        heads = [output[1] for output in outputs if output[1] is not None]
+
+    labels = current_batch.cnn_labels.long()
+    # Train accuracy
+    pred_labels = torch.argmax(predictions, dim=-1) # (B,)
+
+    def _acc(pred):
+        accuracy = (pred == current_batch.cnn_labels).float().sum()
+        return accuracy / current_batch.cnn_labels.numel()
+
+    accuracy = _acc(pred_labels)
+    head_preds = [torch.argmax(head, dim=-1) for head in heads]
+    head_accs = [_acc(pred) for pred in head_preds]
+    state.small_summaries["accuracy/accuracy"] = accuracy
+
+    total_loss, _, warmup_weights = _make_loss(
+        labels,
+        predictions,
+        heads,
+        state.global_step,
+    )
+    add_scalar_ddp("loss/ce", total_loss)
+
+    reg_losses = unwrapped_model.regularization_loss()
+    if reg_losses:
+        add_scalar_ddp("loss/regularization", reg_losses)
+        total_loss += reg_losses
+
+    shared_head_loss, shared_head_acc = unwrapped_model.shared_head_outputs.values()
+    if shared_head_loss is not None and model_config.shared_head_weight > 0.:
+        weighted_head_loss = shared_head_loss * model_config.shared_head_weight
+        total_loss += weighted_head_loss
+
+        add_scalar_ddp("loss/shared_head_loss", shared_head_loss)
+        add_scalar_ddp("loss/weighted_shared_head_loss", weighted_head_loss)
+
+    for head_id, acc in enumerate(head_accs):
+        add_scalar_ddp(f"accuracy/head-{head_id+1}", acc)
+    for head_id, warmup_weight in enumerate(warmup_weights[:-1]):
+        add_scalar_ddp(f"warmup_weights/head-{head_id+1}", warmup_weight)
+    if heads:
+        add_scalar_ddp("warmup_weights/main", warmup_weights[-1])
+
+    if shared_head_acc is not None and model_config.shared_head_weight > 0.:
+        add_scalar_ddp("accuracy/shared_head_accuracy", shared_head_acc[-1])
+
+    # Variable prototype
+    if model_config.use_variable_proto:
+        p_layer = unwrapped_model.layers[-2]
+        assert isinstance(p_layer, layerwise.VariableProtoLayer)
+        last_layer = unwrapped_model.layers[-1]
+        assert isinstance(last_layer, layerwise.ProtoLogitsLayer)
+        assert last_layer.last_linear_weight is not None
+        min_distances = p_layer.min_distances
+        assert min_distances is not None
+        p_vectors = p_layer.used_prototype_vectors
+        assert p_vectors is not None
+        p_class_identity = p_layer.prototype_class_identity
+        assert p_class_identity is not None
+        coefs = variable_proto_config
+
+        if model_config.use_class_specific:
+            # The maximum difference per pixel is 1 (feature map normalized)
+            # There are a total of C×H×W positions
+            max_dist = (
+                p_layer.prototype_shape[1] * \
+                p_layer.prototype_shape[2] * \
+                p_layer.prototype_shape[3]
+            )
+
+            # Calculate cluster cost
+            # (batch_size, num_prototypes)
+            p_of_correct_class = torch.t(
+                # prototype_class_identity -> (num_prototypes, num_classes)
+                # pred_labels -> (batch_size,)
+                #       ↓
+                # (num_prototypes, batch_size)
+                p_layer.prototype_class_identity[:, current_batch.cnn_labels.cpu()]
+            ).cuda()
+            # The larger the score in the similarity style, the better,
+            # so the distance must be reversed
+            inverted_distances, _ = torch.max(
+                (max_dist-min_distances) * p_of_correct_class,
+                dim=1,
+            )
+            cluster_cost = torch.mean(max_dist - inverted_distances)
+            add_scalar_ddp("loss/cluster_cost", cluster_cost)
+
+            # Calculate separation cost
+            p_of_wrong_class = 1 - p_of_correct_class
+            inverted_dists_to_nontarget_p, _ = torch.max(
+                (max_dist-min_distances) * p_of_wrong_class,
+                dim=1,
+            )
+            separation_cost = torch.mean(
+                max_dist - inverted_dists_to_nontarget_p
+            )
+            add_scalar_ddp("loss/separation_cost", separation_cost)
+
+            # Calculate avg cluster cost
+            avg_separation_cost = torch.sum(
+                min_distances * p_of_wrong_class, dim=1
+            ) / torch.sum(p_of_wrong_class, dim=1)
+            avg_separation_cost = torch.mean(avg_separation_cost)
+            # Larger → The sample as a whole deviates from error prototypes → Good
+            # Smaller → Closer to error prototypes → Bad
+            add_scalar_ddp("loss/avg_separation_cost", avg_separation_cost)
+
+            # Prototypes L2 regularization
+            l21 = p_vectors.norm(p=2)
+            add_scalar_ddp("loss/l21", l21)
+
+            # Regularization
+            if model_config.use_l_mask:
+                # Punish the connections of the prototype to **incorrect** categories by using L2 regularization to make the cross-category connections -> 0
+                # Preserve the connections of the prototype to **correct** categories (without punishing)
+                # 
+                # p_class_identity -> [num_prototypes, num_classes] -> [num_classes, num_prototypes]
+                l2_mask = 1 - torch.t(p_class_identity).cuda()
+                # last_linear_weight -> [num_prototypes, num_classes] -> [num_classes, num_prototypes]
+                l22 = (last_layer.last_linear_weight.t() * l2_mask).norm(p=2)
+            else:
+                l22 = last_layer.last_linear_weight.t().norm(p=2)
+            add_scalar_ddp("loss/l22", l22)
+
+            if coefs is not None:
+                total_loss = (
+                    float(coefs.coef_cross_entropy) * total_loss
+                    # The smaller the `cluster_cost`, the better the intra-class clustering
+                    + float(coefs.coef_cluster_cost) * cluster_cost
+                    # The bigger the better
+                    # `coef_separation_cost` is negative
+                    + float(coefs.coef_separation_cost) * separation_cost
+                    # Prevent prototype value explosion, promoting smoother and more compact prototypes;
+                    # the smaller, the better.
+                    + float(coefs.coef_reg_protos) * l21
+                    # Penalty for the connection between prototypes and error categories
+                    # Encourage prototypes to have strong connections only to their own category, while connections to other categories approach zero
+                    # The smaller, the better
+                    + float(coefs.coef_reg_last) * l22
+                )
+            else:
+                total_loss = (
+                    total_loss
+                    + 0.8 * cluster_cost
+                    - 0.08 * separation_cost
+                    + 1e-3 * l21
+                    + 1e-4 * l22
+                )
+        else:
+            min_distance, _ = torch.min(min_distances, dim=1)
+            cluster_cost = torch.mean(min_distance)
+            l21 = p_vectors.norm(p=2)
+            l22 = last_layer.last_linear_weight.t().norm(p=2)
+
+            add_scalar_ddp("loss/cluster_cost", cluster_cost)
+            add_scalar_ddp("loss/l21", l21)
+            add_scalar_ddp("loss/l22", l22)
+            if coefs is not None:
+                total_loss = (
+                    float(coefs.coef_cross_entropy) * total_loss
+                    + float(coefs.coef_cluster_cost) * cluster_cost
+                    + float(coefs.coef_reg_protos) * l21
+                    + float(coefs.coef_reg_last) * l22
+                )
+            else:
+                total_loss = total_loss + 0.8 * cluster_cost + 1e-3 * l21 + 1e-4 * l22
+
+        assert p_layer.cached_prototype_vectors is not None
+        cached_p = p_layer.cached_prototype_vectors.view(p_layer.num_prototypes, -1).cpu()
+        with torch.no_grad():
+            p_pair_dist = list_of_distances(cached_p, cached_p)
+            p_avg_pair_dist = p_pair_dist[
+                ~torch.eye(p_pair_dist.size(0), dtype=torch.bool)
+            ].mean()
+            # Large distances → prototypes are well separated
+            # Small distances → prototypes collapse / become redundant
+            add_scalar_ddp("loss/p_avg_pair_dist", p_avg_pair_dist)
+
+    state.small_summaries["loss/total_loss"] = total_loss
+    return total_loss
+
+def _collect_generators(
+    model: "layerwise.LayerwiseModel"
+) -> tuple[
+    list[nn.Parameter],
+    list[nn.Parameter],
+    list[nn.Parameter],
+]:
+    conv_gens = []
+    proto_gens = []
+    last_logit_gens = []
+
+    for layer in model.layers:
+        if hasattr(layer, "generator"):
+            if isinstance(layer, layerwise.ConvLayer):
+                conv_gens += list(layer.generator.parameters())
+            elif isinstance(layer, layerwise.VariableProtoLayer):
+                proto_gens += list(layer.generator.parameters())
+            elif isinstance(layer, layerwise.ProtoLogitsLayer):
+                last_logit_gens += list(layer.generator.parameters())
+    return conv_gens, proto_gens, last_logit_gens
+
 def train(
     train_config: TrainConfig,
     model_config: "common_ht.LayerwiseModelConfig",
     variable_proto_config: "common_vp.ProtoTrainConfig",
-    optimizer_config: "common.OptimizerConfig",
+    default_optimizer_config: "common.OptimizerConfig",
     state: TrainState,
     batch_provider: tuple[
         Callable[[], "common_ht.DatasetSamples"],
@@ -315,7 +534,10 @@ def train(
         for name, param in state.model.named_parameters():
             logging.info(f"{name}, device: {param.device}, grad: {param.grad is None}")
     state.model.dataset.to(device)
-    state.optimizer, state.scheduler = util.make_optimizer(optimizer_config, state.model)
+    state.optimizer, state.scheduler = util.make_optimizer(
+        default_optimizer_config,
+        state.model,
+    )
 
     # DDP
     if FLAGS.use_ddp:
@@ -335,7 +557,10 @@ def train(
             output_device=local_rank,
             find_unused_parameters=True, # Speed up
         )
-        state.optimizer, state.scheduler = util.make_optimizer(optimizer_config, state.model)
+        state.optimizer, state.scheduler = util.make_optimizer(
+            default_optimizer_config,
+            state.model,
+        )
 
     start_step = state.global_step
     step_updated = 0
@@ -377,6 +602,7 @@ def train(
         unwrapped_model = cast("layerwise.LayerwiseModel", unwrapped_model)
         state.model.train()
         total_loss = torch.tensor(0., device=device)
+        conv_gens = proto_gens = last_layer_gens = []
         if common_flags.PRETRAIN_SHARED_FEATURE.value:
             _ = state.model(
                 train_batch.transformer_samples,
@@ -393,6 +619,39 @@ def train(
             state.small_summaries["loss/shared_head_loss"] = shared_head_loss
             state.small_summaries["accuracy/shared_head_accuracy"] = shared_head_acc
         else:
+            if model_config.use_variable_proto:
+                conv_gens, proto_gens, last_layer_gens = _collect_generators(unwrapped_model)
+
+                # Warmup
+                unwrapped_model.warm()
+                warm_optimizer = torch.optim.Adam(
+                    proto_gens,
+                    lr=variable_proto_config.lr_proto_layer,
+                )
+                state.warm_optimizer = warm_optimizer
+
+                # Joint
+                unwrapped_model.joint()
+                joint_optimizer_specs = [
+                    {
+                        "params": conv_gens,
+                        "lr": variable_proto_config.lr_conv_layer,
+                        "weight_decay": 1e-3,
+                    },
+                    {
+                        "params": proto_gens,
+                        "lr": variable_proto_config.lr_proto_layer,
+                    },
+                ]
+                joint_optimizer = torch.optim.Adam(joint_optimizer_specs)
+                joint_scheduler = torch.optim.lr_scheduler.StepLR(
+                    joint_optimizer,
+                    step_size=variable_proto_config.joint_lr_step_size,
+                    gamma=variable_proto_config.joint_lr_gamma,
+                )
+                state.joint_optimizer = joint_optimizer
+                state.joint_scheduler = joint_scheduler
+
             predictions = state.model(
                 train_batch.transformer_samples,
                 train_batch.transformer_labels,
@@ -402,202 +661,15 @@ def train(
                 enable_fe_dropout=True,
                 deterministic_inference=False,
             )
-
-            heads = []
-            if model_config.train_heads:
-                outputs = unwrapped_model.layer_outputs.values()
-                # layer_outputs[layer.name] => (inputs, head)
-                heads = [output[1] for output in outputs if output[1] is not None]
-
-            labels = train_batch.cnn_labels.long()
-            # Train accuracy
-            pred_labels = torch.argmax(predictions, dim=-1) # (B,)
-
-            def _acc(pred):
-                accuracy = (pred == train_batch.cnn_labels).float().sum()
-                return accuracy / train_batch.cnn_labels.numel()
-
-            accuracy = _acc(pred_labels)
-            head_preds = [torch.argmax(head, dim=-1) for head in heads]
-            head_accs = [_acc(pred) for pred in head_preds]
-            state.small_summaries["accuracy/accuracy"] = accuracy
-
-            total_loss, _, warmup_weights = _make_loss(
-                labels,
+            total_loss = _calculate_loss(
+                model_config,
+                variable_proto_config,
+                state,
+                train_batch,
+                unwrapped_model,
                 predictions,
-                heads,
-                state.global_step,
+                add_scalar_ddp,
             )
-            add_scalar_ddp("loss/ce", total_loss)
-
-            reg_losses = unwrapped_model.regularization_loss()
-            if reg_losses:
-                add_scalar_ddp("loss/regularization", reg_losses)
-                total_loss += reg_losses
-
-            shared_head_loss, shared_head_acc = unwrapped_model.shared_head_outputs.values()
-            if shared_head_loss is not None and model_config.shared_head_weight > 0.:
-                weighted_head_loss = shared_head_loss * model_config.shared_head_weight
-                total_loss += weighted_head_loss
-
-                add_scalar_ddp("loss/shared_head_loss", shared_head_loss)
-                add_scalar_ddp("loss/weighted_shared_head_loss", weighted_head_loss)
-
-            for head_id, acc in enumerate(head_accs):
-                add_scalar_ddp(f"accuracy/head-{head_id+1}", acc)
-            for head_id, warmup_weight in enumerate(warmup_weights[:-1]):
-                add_scalar_ddp(f"warmup_weights/head-{head_id+1}", warmup_weight)
-            if heads:
-                add_scalar_ddp("warmup_weights/main", warmup_weights[-1])
-
-            if shared_head_acc is not None and model_config.shared_head_weight > 0.:
-                add_scalar_ddp("accuracy/shared_head_accuracy", shared_head_acc[-1])
-
-            # Variable prototype
-            if model_config.use_variable_proto and (
-                # NOTE: WARMUP first before using variable prototype!!!
-                state.global_step > max(
-                    5000,
-                    variable_proto_config.push_start,
-                    variable_proto_config.warm_epochs,
-                )
-            ):
-                p_layer = unwrapped_model.layers[-2]
-                assert isinstance(p_layer, layerwise.VariableProtoLayer)
-                last_layer = unwrapped_model.layers[-1]
-                assert isinstance(last_layer, layerwise.ProtoLogitsLayer)
-                assert last_layer.last_linear_weight is not None
-                min_distances = p_layer.min_distances
-                assert min_distances is not None
-                p_vectors = p_layer.used_prototype_vectors
-                assert p_vectors is not None
-                p_class_identity = p_layer.prototype_class_identity
-                assert p_class_identity is not None
-                coefs = variable_proto_config
-
-                if model_config.use_class_specific:
-                    # The maximum difference per pixel is 1 (feature map normalized)
-                    # There are a total of C×H×W positions
-                    max_dist = (
-                        p_layer.prototype_shape[1] * \
-                        p_layer.prototype_shape[2] * \
-                        p_layer.prototype_shape[3]
-                    )
-
-                    # Calculate cluster cost
-                    # (batch_size, num_prototypes)
-                    p_of_correct_class = torch.t(
-                        # prototype_class_identity -> (num_prototypes, num_classes)
-                        # pred_labels -> (batch_size,)
-                        #       ↓
-                        # (num_prototypes, batch_size)
-                        p_layer.prototype_class_identity[:, train_batch.cnn_labels.cpu()]
-                    ).cuda()
-                    # The larger the score in the similarity style, the better,
-                    # so the distance must be reversed
-                    inverted_distances, _ = torch.max(
-                        (max_dist-min_distances) * p_of_correct_class,
-                        dim=1,
-                    )
-                    cluster_cost = torch.mean(max_dist - inverted_distances)
-                    add_scalar_ddp("loss/cluster_cost", cluster_cost)
-
-                    # Calculate separation cost
-                    p_of_wrong_class = 1 - p_of_correct_class
-                    inverted_dists_to_nontarget_p, _ = torch.max(
-                        (max_dist-min_distances) * p_of_wrong_class,
-                        dim=1,
-                    )
-                    separation_cost = torch.mean(
-                        max_dist - inverted_dists_to_nontarget_p
-                    )
-                    add_scalar_ddp("loss/separation_cost", separation_cost)
-
-                    # Calculate avg cluster cost
-                    avg_separation_cost = torch.sum(
-                        min_distances * p_of_wrong_class, dim=1
-                    ) / torch.sum(p_of_wrong_class, dim=1)
-                    avg_separation_cost = torch.mean(avg_separation_cost)
-                    # Larger → The sample as a whole deviates from error prototypes → Good
-                    # Smaller → Closer to error prototypes → Bad
-                    add_scalar_ddp("loss/avg_separation_cost", avg_separation_cost)
-
-                    # Prototypes L2 regularization
-                    l21 = p_vectors.norm(p=2)
-                    add_scalar_ddp("loss/l21", l21)
-
-                    # Regularization
-                    if model_config.use_l_mask:
-                        # Punish the connections of the prototype to **incorrect** categories by using L2 regularization to make the cross-category connections -> 0
-                        # Preserve the connections of the prototype to **correct** categories (without punishing)
-                        # 
-                        # p_class_identity -> [num_prototypes, num_classes] -> [num_classes, num_prototypes]
-                        l2_mask = 1 - torch.t(p_class_identity).cuda()
-                        # last_linear_weight -> [num_prototypes, num_classes] -> [num_classes, num_prototypes]
-                        l22 = (last_layer.last_linear_weight.t() * l2_mask).norm(p=2)
-                    else:
-                        l22 = last_layer.last_linear_weight.t().norm(p=2)
-                    add_scalar_ddp("loss/l22", l22)
-
-                    if coefs is not None:
-                        total_loss = (
-                            float(coefs.coef_cross_entropy) * total_loss
-                            # The smaller the `cluster_cost`, the better the intra-class clustering
-                            + float(coefs.coef_cluster_cost) * cluster_cost
-                            # The bigger the better
-                            # `coef_separation_cost` is negative
-                            + float(coefs.coef_separation_cost) * separation_cost
-                            # Prevent prototype value explosion, promoting smoother and more compact prototypes;
-                            # the smaller, the better.
-                            + float(coefs.coef_reg_protos) * l21
-                            # Penalty for the connection between prototypes and error categories
-                            # Encourage prototypes to have strong connections only to their own category, while connections to other categories approach zero
-                            # The smaller, the better
-                            + float(coefs.coef_reg_last) * l22
-                        )
-                    else:
-                        total_loss = (
-                            total_loss
-                            + 0.8 * cluster_cost
-                            - 0.08 * separation_cost
-                            + 1e-3 * l21
-                            + 1e-4 * l22
-                        )
-                else:
-                    min_distance, _ = torch.min(min_distances, dim=1)
-                    cluster_cost = torch.mean(min_distance)
-                    l21 = p_vectors.norm(p=2)
-                    l22 = last_layer.last_linear_weight.t().norm(p=2)
-
-                    add_scalar_ddp("loss/cluster_cost", cluster_cost)
-                    add_scalar_ddp("loss/l21", l21)
-                    add_scalar_ddp("loss/l22", l22)
-                    if coefs is not None:
-                        total_loss = (
-                            float(coefs.coef_cross_entropy) * total_loss
-                            + float(coefs.coef_cluster_cost) * cluster_cost
-                            + float(coefs.coef_reg_protos) * l21
-                            + float(coefs.coef_reg_last) * l22
-                        )
-                    else:
-                        total_loss = total_loss + 0.8 * cluster_cost + 1e-3 * l21 + 1e-4 * l22
-
-                assert p_layer.cached_prototype_vectors is not None
-                cached_p = p_layer.cached_prototype_vectors.view(p_layer.num_prototypes, -1).cpu()
-                with torch.no_grad():
-                    p_pair_dist = list_of_distances(cached_p, cached_p)
-                    p_avg_pair_dist = p_pair_dist[
-                        ~torch.eye(p_pair_dist.size(0), dtype=torch.bool)
-                    ].mean()
-                    # Large distances → prototypes are well separated
-                    # Small distances → prototypes collapse / become redundant
-                    add_scalar_ddp("loss/p_avg_pair_dist", p_avg_pair_dist)
-
-            state.small_summaries["loss/total_loss"] = total_loss
-
-        # Backward + Step
-        state.optimizer.zero_grad()
-        total_loss.backward()
 
         """
         # Use this ONLY when debugging the model!!!
@@ -628,9 +700,27 @@ def train(
                         )
         """
 
-        state.optimizer.step()
-        assert state.scheduler is not None
-        state.scheduler.step()
+        if not model_config.use_variable_proto:
+            state.optimizer.zero_grad()
+            total_loss.backward()
+
+            state.optimizer.step()
+            assert state.scheduler is not None
+            state.scheduler.step()
+        elif (
+            state.global_step >= variable_proto_config.push_warmup_steps
+        ):
+            state.joint_optimizer.zero_grad()
+            total_loss.backward()
+
+            state.joint_optimizer.step()
+            assert state.joint_scheduler is not None
+            state.joint_scheduler.step()
+        else:
+            state.warm_optimizer.zero_grad()
+            total_loss.backward()
+
+            state.warm_optimizer.step()
 
         # Push prototype
         if model_config.use_variable_proto:
@@ -677,6 +767,48 @@ def train(
 
                     state.save()
                     break
+
+                # Last logits layer only fully connected training after push
+                p_layer = unwrapped_model.layers[-2]
+                assert isinstance(p_layer, layerwise.VariableProtoLayer)
+                last_layer = unwrapped_model.layers[-1]
+                assert isinstance(last_layer, layerwise.ProtoLogitsLayer)
+                assert last_layer.last_linear_weight is not None
+                if p_layer.prototype_activation_func != "linear":
+                    unwrapped_model.last_only()
+                    assert last_layer_gens is not None
+                    lastp_optimizer = torch.optim.Adam(
+                        last_layer_gens,
+                        lr=variable_proto_config.lr_last_layer,
+                    )
+                    state.last_layer_optimizer = lastp_optimizer
+                    for i in range(1, variable_proto_config.push_last_steps+1):
+                        logging.info(f"Last Only Iteration: {i}")
+                        lastp_batch = batch_provider[0]()
+                        lastp_batch.to(device)
+
+                        lastp_predictions = state.model(
+                            lastp_batch.transformer_samples,
+                            lastp_batch.transformer_labels,
+                            lastp_batch.cnn_samples,
+                            mask=lastp_batch.transformer_masks,
+                            mask_random_samples=True,
+                            enable_fe_dropout=True,
+                            deterministic_inference=False,
+                        )
+                        lastp_total_loss = _calculate_loss(
+                            model_config,
+                            variable_proto_config,
+                            state,
+                            lastp_batch,
+                            unwrapped_model,
+                            lastp_predictions,
+                            add_scalar_ddp,
+                        )
+
+                        state.last_layer_optimizer.zero_grad()
+                        lastp_total_loss.backward()
+                        state.last_layer_optimizer.step()
 
         # Test accuracy
         if not common_flags.PRETRAIN_SHARED_FEATURE.value:

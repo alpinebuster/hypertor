@@ -45,6 +45,13 @@ def make_variable_proto_config():
         warm_epochs=FLAGS.warmup_steps,
         push_freq=FLAGS.push_freq,
         push_start=FLAGS.push_start,
+        push_last_steps=FLAGS.push_last_steps,
+        push_warmup_steps=FLAGS.push_warmup_steps,
+        lr_last_layer=FLAGS.lr_last_layer,
+        lr_proto_layer=FLAGS.lr_proto_layer,
+        lr_conv_layer=FLAGS.lr_conv_layer,
+        joint_lr_step_size=FLAGS.joint_lr_step_size,
+        joint_lr_gamma=FLAGS.joint_lr_gamma,
         prototypes=FLAGS.prototypes,
         prototype_size=FLAGS.prototype_size,
         prototype_activation_func=FLAGS.prototype_activation_func,
@@ -253,7 +260,11 @@ def create_layerwise_model(
     return common.TrainState(
         model=model,
         optimizer=optimizer,
+        joint_optimizer=optimizer,
+        warm_optimizer=optimizer,
+        last_layer_optimizer=optimizer,
         scheduler=scheduler,
+        joint_scheduler=scheduler,
         checkpoint_dir=FLAGS.train_log_dir,
     )
 
@@ -285,7 +296,11 @@ def create_shared_feature_model(
     return common.TrainState(
         model=model,
         optimizer=optimizer,
+        joint_optimizer=optimizer,
+        warm_optimizer=optimizer,
+        last_layer_optimizer=optimizer,
         scheduler=scheduler,
+        joint_scheduler=scheduler,
         checkpoint_dir=FLAGS.train_log_dir,
     )
 
@@ -529,7 +544,7 @@ def train(
             train_config=train_config,
             model_config=model_config,
             variable_proto_config=variable_proto_config,
-            optimizer_config=optimizer_config,
+            default_optimizer_config=optimizer_config,
             state=state,
             batch_provider=(train_batch_provider, test_batch_provider),
         )

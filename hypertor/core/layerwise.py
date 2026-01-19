@@ -12,6 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from hypertor.core import common_ht
+from hypertor.variable_proto import common_vp
 from hypertor.core.common_ht import LayerwiseModelConfig
 from hypertor.core import feature_extractors
 from hypertor.core import transformer
@@ -1529,6 +1530,8 @@ class LayerwiseModel(nn.Module):
         self.layer_strides: list[tuple[int, int]] = []
         self.layer_paddings: list[tuple[str, str]] = []
 
+        self.training_stage: common_vp.ProtoTrainingStage = common_vp.ProtoTrainingStage.JOINT
+
     def setup(
         self,
         inputs: torch.Tensor,
@@ -1612,24 +1615,60 @@ class LayerwiseModel(nn.Module):
         if mask_random_samples:
             mask = remove_some_samples(labels, self.model_config, mask)
 
-        num_trained_layers = abs(self.number_of_trained_cnn_layers)
-        # Last layer is always a LogitsLayer and we always generate it.
-        num_generated_layers = len(self.layers) - num_trained_layers - 1
-        if num_generated_layers < 0:
-            raise ValueError(
-                "num_trained_layers should be smaller that the total "
-                "number of conv layers."
-            )
+        if self.model_config.use_variable_proto:
+            if self.training_stage == common_vp.ProtoTrainingStage.WARM:
+                # Only proto + logits layers
+                generate_weights_per_layers = [
+                    isinstance(layer, (VariableProtoLayer, ProtoLogitsLayer))
+                    for layer in self.layers
+                ]
+            elif self.training_stage == common_vp.ProtoTrainingStage.JOINT:
+                # All layers
+                num_trained_layers = abs(self.number_of_trained_cnn_layers)
+                # Last two layers is always generated.
+                num_generated_layers = len(self.layers) - num_trained_layers - 2
+                if num_generated_layers < 0:
+                    raise ValueError(
+                        "num_trained_layers should be smaller that the total "
+                        "number of conv layers."
+                    )
 
-        is_first_trained = self.number_of_trained_cnn_layers >= 0
-        if is_first_trained:
-            generate_weights_per_layers = (
-                [False] * num_trained_layers + [True] * num_generated_layers + [True]
-            )
+                is_first_trained = self.number_of_trained_cnn_layers >= 0
+                if is_first_trained:
+                    generate_weights_per_layers = (
+                        [False]*num_trained_layers + [True]*num_generated_layers + [True]+[True]
+                    )
+                else:
+                    generate_weights_per_layers = (
+                        [True]*num_generated_layers + [False]*num_trained_layers + [True]+[True]
+                    )
+            elif self.training_stage == common_vp.ProtoTrainingStage.LAST_ONLY:
+                # Only last logits layer
+                generate_weights_per_layers = [
+                    isinstance(layer, ProtoLogitsLayer)
+                    for layer in self.layers
+                ]
+            else:
+                raise ValueError(f"Unknown training stage: {self.training_stage}")
         else:
-            generate_weights_per_layers = (
-                [True] * num_generated_layers + [False] * num_trained_layers + [True]
-            )
+            num_trained_layers = abs(self.number_of_trained_cnn_layers)
+            # Last layer is always a LogitsLayer and we always generate it.
+            num_generated_layers = len(self.layers) - num_trained_layers - 1
+            if num_generated_layers < 0:
+                raise ValueError(
+                    "num_trained_layers should be smaller that the total "
+                    "number of conv layers."
+                )
+
+            is_first_trained = self.number_of_trained_cnn_layers >= 0
+            if is_first_trained:
+                generate_weights_per_layers = (
+                    [False]*num_trained_layers + [True]*num_generated_layers + [True]
+                )
+            else:
+                generate_weights_per_layers = (
+                    [True]*num_generated_layers + [False]*num_trained_layers + [True]
+                )
 
         for layer, do_gen_weights in zip(self.layers, generate_weights_per_layers):
             # Just to make Pylance 100% happy!!!
@@ -1788,3 +1827,12 @@ class LayerwiseModel(nn.Module):
         list[tuple[str, str]]
     ]:
         return self.layer_kernel_sizes, self.layer_strides, self.layer_paddings
+
+    def warm(self):
+        self.training_stage = common_vp.ProtoTrainingStage.WARM
+
+    def joint(self):
+        self.training_stage = common_vp.ProtoTrainingStage.JOINT
+
+    def last_only(self):
+        self.training_stage = common_vp.ProtoTrainingStage.LAST_ONLY

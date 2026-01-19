@@ -1,6 +1,13 @@
+import enum
 import dataclasses
 
 import torch
+
+
+class ProtoTrainingStage(enum.Enum):
+    WARM = "warm"
+    JOINT = "joint"
+    LAST_ONLY = "last"
 
 
 @dataclasses.dataclass
@@ -12,6 +19,15 @@ class ProtoTrainConfig:
     # Prototype pushing
     push_freq: int
     push_start: int
+    push_last_steps: int
+    push_warmup_steps: int
+
+    lr_last_layer: float
+    lr_proto_layer: float
+    lr_conv_layer: float
+
+    joint_lr_step_size: int
+    joint_lr_gamma: float
 
     # Prototype parameters
     prototypes: int # number of prototypes per class
