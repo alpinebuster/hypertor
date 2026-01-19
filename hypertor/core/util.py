@@ -685,6 +685,7 @@ def get_ddp_msg():
 
 
 def make_optimizer(
+    train_config: "common.TrainConfig",
     optim_config: "common.OptimizerConfig",
     model: nn.Module,
 ) -> tuple[Optimizer, LRScheduler]:
@@ -692,12 +693,23 @@ def make_optimizer(
         model.parameters(),
         lr=optim_config.learning_rate,
     )
-    scheduler = torch.optim.lr_scheduler.LambdaLR(
+
+    total_steps = int(train_config.train_steps / 50)
+
+    def lr_lambda(step):
+        if step < optim_config.push_warmup_steps:
+            return step / optim_config.push_warmup_steps
+        progress = (step - optim_config.push_warmup_steps) / (total_steps - optim_config.push_warmup_steps)
+        return 0.5 * (1 + math.cos(math.pi * progress))
+    # scheduler = torch.optim.lr_scheduler.LambdaLR(
+    #     optimizer,
+    #     lr_lambda
+    # )
+
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer,
-        lr_lambda=lambda step: (
-            optim_config.lr_decay_rate
-            ** (step / optim_config.lr_decay_steps)
-        ),
+        T_max=total_steps,
+        eta_min=1e-6,
     )
     return optimizer, scheduler
 

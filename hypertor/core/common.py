@@ -140,6 +140,8 @@ class OptimizerConfig:
     lr_decay_steps: int = 10000
     lr_decay_rate: float = 1.0
 
+    push_warmup_steps: int = 7000
+
 
 @dataclasses.dataclass
 class ModelOutputs:
@@ -538,6 +540,7 @@ def train(
             logging.info(f"{name}, device: {param.device}, grad: {param.grad is None}")
     state.model.dataset.to(device)
     state.optimizer, state.scheduler = util.make_optimizer(
+        train_config,
         default_optimizer_config,
         state.model,
     )

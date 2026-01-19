@@ -76,6 +76,7 @@ def make_optimizer_config():
         learning_momentum=FLAGS.learning_momentum,
         lr_decay_steps=FLAGS.learning_rate_decay_steps,
         lr_decay_rate=FLAGS.learning_rate_decay_rate,
+        push_warmup_steps=FLAGS.push_warmup_steps,
     )
 
 
