@@ -478,7 +478,10 @@ def _collect_generators(
     proto_gens = []
     last_logit_gens = []
 
-    for layer in model.layers:
+    for layer, do_gen in zip(model.layers, model.generate_weights_per_layers):
+        if not do_gen:
+            continue
+
         if hasattr(layer, "generator"):
             if isinstance(layer, layerwise.ConvLayer):
                 conv_gens += list(layer.generator.parameters())
@@ -601,7 +604,6 @@ def train(
         unwrapped_model = util.unwrap_model(state.model)
         unwrapped_model = cast("layerwise.LayerwiseModel", unwrapped_model)
         state.model.train()
-        total_loss = torch.tensor(0., device=device)
         conv_gens = proto_gens = last_layer_gens = []
         if common_flags.PRETRAIN_SHARED_FEATURE.value:
             _ = state.model(
@@ -620,10 +622,16 @@ def train(
             state.small_summaries["accuracy/shared_head_accuracy"] = shared_head_acc
         else:
             if model_config.use_variable_proto:
+                if (
+                    state.global_step >= variable_proto_config.push_warmup_steps
+                ):
+                    unwrapped_model.joint()
+                else:
+                    unwrapped_model.warm()
+
                 conv_gens, proto_gens, last_layer_gens = _collect_generators(unwrapped_model)
 
                 # Warmup
-                unwrapped_model.warm()
                 warm_optimizer = torch.optim.Adam(
                     proto_gens,
                     lr=variable_proto_config.lr_proto_layer,
@@ -631,12 +639,10 @@ def train(
                 state.warm_optimizer = warm_optimizer
 
                 # Joint
-                unwrapped_model.joint()
                 joint_optimizer_specs = [
                     {
                         "params": conv_gens,
                         "lr": variable_proto_config.lr_conv_layer,
-                        "weight_decay": 1e-3,
                     },
                     {
                         "params": proto_gens,
@@ -671,38 +677,26 @@ def train(
                 add_scalar_ddp,
             )
 
-        """
-        # Use this ONLY when debugging the model!!!
-        for name, p in unwrapped_model.named_parameters():
-            if p.requires_grad and p.grad is None:
-                logging.info(
-                    f"{util.get_ddp_msg()}NO GRAD: {name}"
-                )
-            if p.device.type != "cuda":
-                logging.info(
-                    f"{util.get_ddp_msg()}[PARAM NOT CUDA] {name} -> {p.device}"
-                )
-            if p.grad is not None and p.grad.device.type != "cuda":
-                logging.info(
-                    f"{util.get_ddp_msg()}[GRAD NOT CUDA] {name} -> {p.grad.device}"
-                )
-        for _, group in enumerate(state.optimizer.param_groups):
-            for p in group["params"]:
-                if p not in state.optimizer.state:
-                    continue
-                opt_state = state.optimizer.state[p]
-                for k, v in opt_state.items():
-                    if torch.is_tensor(v) and v.device != p.device:
-                        logging.info(
-                            f"{util.get_ddp_msg()}"
-                            f"[OPT STATE MISMATCH] param={p.shape} "
-                            f"opt_state={k} opt_state.device={v.device} param.device={p.device}"
-                        )
-        """
-
         if not model_config.use_variable_proto:
             state.optimizer.zero_grad()
             total_loss.backward()
+
+            """
+            # Use this ONLY when debugging the model!!!
+            for name, p in unwrapped_model.named_parameters():
+                if p.requires_grad and p.grad is None:
+                    logging.info(
+                        f"{util.get_ddp_msg()}NO GRAD: {name}"
+                    )
+                if p.device.type != "cuda":
+                    logging.info(
+                        f"{util.get_ddp_msg()}[PARAM NOT CUDA] {name} -> {p.device}"
+                    )
+                if p.grad is not None and p.grad.device.type != "cuda":
+                    logging.info(
+                        f"{util.get_ddp_msg()}[GRAD NOT CUDA] {name} -> {p.grad.device}"
+                    )
+            """
 
             state.optimizer.step()
             assert state.scheduler is not None
@@ -719,6 +713,15 @@ def train(
         else:
             state.warm_optimizer.zero_grad()
             total_loss.backward()
+
+            """
+            for name, p in unwrapped_model.named_parameters():
+                if p.requires_grad:
+                    if p.grad is None:
+                        logging.warning(f"NO GRAD: {name}")
+                    else:
+                        logging.info(f"GRAD OK: {name} | {p.grad.norm():.4f}")
+            """
 
             state.warm_optimizer.step()
 

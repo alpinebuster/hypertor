@@ -11,10 +11,13 @@ flags.DEFINE_integer(
     7000, 
     "Number of steps for the warmup of prototype pushing (0 disables warmup).",
 )
-# lr_conv_layer < lr_last_layer ≤ lr_proto_layer
-flags.DEFINE_float("lr_last_layer", 1e-2, "Coefficient for last layer regularization.")
-flags.DEFINE_float("lr_proto_layer", 1e-1, "Coefficient for last layer regularization.")
-flags.DEFINE_float("lr_conv_layer", 1e-3, "Coefficient for last layer regularization.")
+
+# NOTE: [3e-4, 1e-3]
+flags.DEFINE_float("lr_last_layer", 1e-3, "Learning rate for last layer.")
+# NOTE: [3e-4, 1e-3]
+flags.DEFINE_float("lr_proto_layer", 3e-4, "Learning rate for prototype layer.")
+# NOTE: [1e-4, 3e-5]
+flags.DEFINE_float("lr_conv_layer", 2e-4, "Learning rate for convolution layer.")
 flags.DEFINE_integer("joint_lr_step_size", 100, "Step size of joint learning rate in joint training.")
 flags.DEFINE_float("joint_lr_gamma", 5e-1, "Allow the generator to move to a certain extent in joint training.")
 
