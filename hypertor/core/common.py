@@ -629,35 +629,6 @@ def train(
                 else:
                     unwrapped_model.warm()
 
-                # conv_gens, proto_gens, last_layer_gens = _collect_generators(unwrapped_model)
-
-                # # Warmup
-                # warm_optimizer = torch.optim.Adam(
-                #     proto_gens,
-                #     lr=variable_proto_config.lr_proto_layer,
-                # )
-                # state.warm_optimizer = warm_optimizer
-
-                # # Joint
-                # joint_optimizer_specs = [
-                #     {
-                #         "params": conv_gens,
-                #         "lr": variable_proto_config.lr_conv_layer,
-                #     },
-                #     {
-                #         "params": proto_gens,
-                #         "lr": variable_proto_config.lr_proto_layer,
-                #     },
-                # ]
-                # joint_optimizer = torch.optim.Adam(joint_optimizer_specs)
-                # joint_scheduler = torch.optim.lr_scheduler.StepLR(
-                #     joint_optimizer,
-                #     step_size=variable_proto_config.joint_lr_step_size,
-                #     gamma=variable_proto_config.joint_lr_gamma,
-                # )
-                # state.joint_optimizer = joint_optimizer
-                # state.joint_scheduler = joint_scheduler
-
             predictions = state.model(
                 train_batch.transformer_samples,
                 train_batch.transformer_labels,
@@ -700,29 +671,6 @@ def train(
         state.optimizer.step()
         assert state.scheduler is not None
         state.scheduler.step()
-        # elif (
-        #     state.global_step >= variable_proto_config.push_warmup_steps
-        # ):
-        #     state.joint_optimizer.zero_grad()
-        #     total_loss.backward()
-
-        #     state.joint_optimizer.step()
-        #     assert state.joint_scheduler is not None
-        #     state.joint_scheduler.step()
-        # else:
-        #     state.warm_optimizer.zero_grad()
-        #     total_loss.backward()
-
-        #     """
-        #     for name, p in unwrapped_model.named_parameters():
-        #         if p.requires_grad:
-        #             if p.grad is None:
-        #                 logging.warning(f"NO GRAD: {name}")
-        #             else:
-        #                 logging.info(f"GRAD OK: {name} | {p.grad.norm():.4f}")
-        #     """
-
-        #     state.warm_optimizer.step()
 
         # Push prototype
         if model_config.use_variable_proto:
@@ -778,12 +726,7 @@ def train(
                 assert last_layer.last_linear_weight is not None
                 if p_layer.prototype_activation_func != "linear":
                     unwrapped_model.last_only()
-                    # assert last_layer_gens is not None
-                    # lastp_optimizer = torch.optim.Adam(
-                    #     last_layer_gens,
-                    #     lr=variable_proto_config.lr_last_layer,
-                    # )
-                    # state.last_layer_optimizer = lastp_optimizer
+
                     for i in range(1, variable_proto_config.push_last_steps+1):
                         logging.info(f"Last Only Iteration: {i}")
                         lastp_batch = batch_provider[0]()
