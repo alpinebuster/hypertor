@@ -233,6 +233,7 @@ def make_test_dataset_config(dataset_spec=""):
 
 
 def create_layerwise_model(
+    train_config: common.TrainConfig,
     model_config: common_ht.LayerwiseModelConfig,
     dataset: common_ht.DatasetSamples,
     optim_config: common.OptimizerConfig,
@@ -256,7 +257,7 @@ def create_layerwise_model(
             enable_fe_dropout=True,
             only_shared_feature=False,
         )
-    optimizer, scheduler = util.make_optimizer(optim_config, model)
+    optimizer, scheduler = util.make_optimizer(train_config, optim_config, model)
 
     return common.TrainState(
         model=model,
@@ -271,6 +272,7 @@ def create_layerwise_model(
 
 
 def create_shared_feature_model(
+    train_config: common.TrainConfig,
     model_config: common_ht.LayerwiseModelConfig,
     dataset: common_ht.DatasetSamples,
     optim_config: common.OptimizerConfig,
@@ -292,7 +294,7 @@ def create_shared_feature_model(
             enable_fe_dropout=True,
             only_shared_feature=True,
         )
-    optimizer, scheduler = util.make_optimizer(optim_config, model)
+    optimizer, scheduler = util.make_optimizer(train_config, optim_config, model)
 
     return common.TrainState(
         model=model,
@@ -491,11 +493,13 @@ def train(
             create_model = functools.partial(
                 create_shared_feature_model,
                 model_config=model_config,
+                train_config=train_config,
             )
         else:
             create_model = functools.partial(
                 create_layerwise_model,
                 model_config=model_config,
+                train_config=train_config,
             )
         state = create_model(**_args)
 

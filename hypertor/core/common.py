@@ -564,6 +564,7 @@ def train(
             find_unused_parameters=True, # Speed up
         )
         state.optimizer, state.scheduler = util.make_optimizer(
+            train_config,
             default_optimizer_config,
             state.model,
         )
