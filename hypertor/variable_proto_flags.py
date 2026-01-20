@@ -4,11 +4,11 @@ from absl import flags
 
 # Prototype pushing
 flags.DEFINE_integer("push_freq", 1000, "Frequency of pushing prototypes.")
-flags.DEFINE_integer("push_start", 50000, "Steps to start pushing prototypes.")
+flags.DEFINE_integer("push_start", 10000, "Steps to start pushing prototypes.")
 flags.DEFINE_integer("push_last_steps", 5000, "Steps to train last layer only.")
 flags.DEFINE_integer(
     "push_warmup_steps",
-    7000, 
+    3000, 
     "Number of steps for the warmup of prototype pushing (0 disables warmup).",
 )
 
@@ -17,7 +17,7 @@ flags.DEFINE_float("lr_last_layer", 1e-3, "Learning rate for last layer.")
 # NOTE: [3e-4, 1e-3]
 flags.DEFINE_float("lr_proto_layer", 3e-4, "Learning rate for prototype layer.")
 # NOTE: [1e-4, 3e-5]
-flags.DEFINE_float("lr_conv_layer", 2e-4, "Learning rate for convolution layer.")
+flags.DEFINE_float("lr_conv_layer", 5e-4, "Learning rate for convolution layer.")
 flags.DEFINE_integer("joint_lr_step_size", 100, "Step size of joint learning rate in joint training.")
 flags.DEFINE_float("joint_lr_gamma", 5e-1, "Allow the generator to move to a certain extent in joint training.")
 

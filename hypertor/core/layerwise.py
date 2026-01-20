@@ -995,8 +995,13 @@ class VariableProtoLayer(BaseCNNLayer):
         self.used_prototype_vectors: Optional[torch.Tensor] = None
 
         # `prototype_vectors` -> `prototype_shape`=[out_channels, in_channels, kernel_h, kernel_w]
-        self.prototype_vectors = nn.Parameter(torch.empty(self.prototype_shape))
-        nn.init.kaiming_normal_(self.prototype_vectors, mode="fan_in", nonlinearity="relu")
+        self.prototype_vectors = nn.Parameter(
+            torch.rand(self.prototype_shape),
+            requires_grad=True,
+        )
+        # nn.init.normal_(self.prototype_vectors, mean=0.0, std=0.1) # std=0.01
+        # nn.init.kaiming_normal_(self.prototype_vectors, mode="fan_in", nonlinearity="relu")
+
         if self.add_trainable_weights:
             self.var_weights["kernel"] = nn.Parameter(
                 torch.zeros_like(self.prototype_vectors)

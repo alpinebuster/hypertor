@@ -695,7 +695,6 @@ def make_optimizer(
     )
 
     total_steps = int(train_config.train_steps / 50)
-
     def lr_lambda(step):
         """
         lr
@@ -709,29 +708,11 @@ def make_optimizer(
             return step/optim_config.push_warmup_steps
         progress = (step-optim_config.push_warmup_steps) / (total_steps-optim_config.push_warmup_steps)
         return 0.5 * (1+math.cos(math.pi*progress))
+
     scheduler = torch.optim.lr_scheduler.LambdaLR(
         optimizer,
         lr_lambda, # lr(step) = base_lr × lr_lambda(step)
     )
-
-    """
-    warmup = torch.optim.lr_scheduler.LinearLR(
-        optimizer,
-        start_factor=0.0,
-        end_factor=1.0,
-        total_iters=optim_config.push_warmup_steps,
-    )
-    cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer,
-        T_max=total_steps-optim_config.push_warmup_steps,
-    )
-    scheduler = torch.optim.lr_scheduler.SequentialLR(
-        optimizer,
-        schedulers=[warmup, cosine],
-        milestones=[optim_config.push_warmup_steps],
-    )
-    """
-
     return optimizer, scheduler
 
 
