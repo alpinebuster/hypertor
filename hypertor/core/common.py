@@ -88,6 +88,7 @@ class TrainState:
                 "prototype_class_identity": self.vp_state.prototype_class_identity.cpu(),
                 "prototype_ids_per_class": self.vp_state.prototype_ids_per_class,
             }
+
         torch.save({
             # Machines without a GPU can still use `torch.load` to load it
             # No reliance on CUDA version
@@ -96,6 +97,7 @@ class TrainState:
                 for k, v in unwrapped_model.state_dict().items()
             },
             "optimizer": self.optimizer.state_dict(),
+            "scheduler": self.scheduler.state_dict() if self.scheduler is not None else None,
             "global_step": self.global_step,
             **vp_data,
         }, path)
@@ -110,6 +112,8 @@ class TrainState:
         assert not isinstance(self.model, DDP)
         self.model.load_state_dict(data["model"], strict=False)
         self.optimizer.load_state_dict(data["optimizer"])
+        if self.scheduler is not None:
+            self.scheduler.load_state_dict(data["scheduler"])
         self.global_step = int(data.get("global_step", 0))
 
         # Restore the states of variable prototype
@@ -608,7 +612,7 @@ def train(
         unwrapped_model = util.unwrap_model(state.model)
         unwrapped_model = cast("layerwise.LayerwiseModel", unwrapped_model)
         state.model.train()
-        conv_gens = proto_gens = last_layer_gens = []
+
         if common_flags.PRETRAIN_SHARED_FEATURE.value:
             _ = state.model(
                 train_batch.transformer_samples,
