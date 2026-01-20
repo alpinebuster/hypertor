@@ -5,7 +5,7 @@ from absl import flags
 # Prototype pushing
 flags.DEFINE_integer("push_freq", 1000, "Frequency of pushing prototypes.")
 flags.DEFINE_integer("push_start", 10000, "Steps to start pushing prototypes.")
-flags.DEFINE_integer("push_last_steps", 5000, "Steps to train last layer only.")
+flags.DEFINE_integer("push_last_steps", 2000, "Steps to train last layer only.")
 flags.DEFINE_integer(
     "push_warmup_steps",
     3000, 
