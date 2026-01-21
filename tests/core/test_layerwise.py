@@ -97,6 +97,7 @@ def test_number_of_trained_cnn_layers_param_should_give_trained_weights(layerwis
     ) = layerwise_params
     model_config.number_of_trained_cnn_layers = 1
     model_config.shared_feature_extractor = "4-layer"
+    model_config.use_darkflow = False
 
     model = layerwise.build_model(
         name=model_config.cnn_model_name,
@@ -132,6 +133,7 @@ def test_negative_number_of_trained_cnn_layers_param_trains_last_layers(layerwis
         dataset,
     ) = layerwise_params
     model_config.number_of_trained_cnn_layers = -1
+    model_config.use_darkflow = False
 
     model = layerwise.build_model(
         model_config.cnn_model_name,

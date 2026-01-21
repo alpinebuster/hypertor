@@ -320,6 +320,7 @@ class DarkflowSharedMultilayerFeatureExtractor(FeatureExtractor):
         assert time_pool in ("mean", "max")
         assert flow_pool in ("mean", "max")
 
+        self.in_channels = in_channels
         self.feature_dim = feature_dim
         self.nonlinear_feature = nonlinear_feature
         self.kernel_size = kernel_size
@@ -348,7 +349,7 @@ class DarkflowSharedMultilayerFeatureExtractor(FeatureExtractor):
         for idx in range(feature_layers):
             # BatchNorm relies on "channel consistency across samples", and LayerNorm depends on "overall stability of a single sample".
             if use_bn:
-                self.bns.append(nn.BatchNorm2d(num_features=feature_dim))
+                self.bns.append(nn.BatchNorm1d(num_features=feature_dim))
             else:
                 self.bns.append(nn.Identity())
 
@@ -382,8 +383,6 @@ class DarkflowSharedMultilayerFeatureExtractor(FeatureExtractor):
         for conv, bn in zip(self.convs, self.bns):
             conv = cast(nn.Conv1d, conv)
 
-            import pdb
-            pdb.set_trace()
             # Conv1d only slides on T
             # Each layer: (B*F, C, T) → (B*F, K, T_i)
             tensor = conv(tensor)

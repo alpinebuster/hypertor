@@ -154,20 +154,21 @@ def test_darkflow_shared_basic(use_bn, feature_layers):
     B, C, H, W = 4, 3, 64, 64
     feature_dim = 8
 
+    # (B, F, C, T) → (B*F, C, T)
     model = DarkflowSharedMultilayerFeatureExtractor(
-        in_channels=C,
+        in_channels=H,
         feature_layers=feature_layers,
         feature_dim=feature_dim,
         kernel_size=3,
         padding="valid",
-        use_bn=use_bn,
         name="test_shared_basic",
+        use_bn=use_bn,
     )
 
     x = torch.randn(B, C, H, W)
     y = model(x)
 
-    assert y.shape == (B, feature_dim)
+    assert y.shape == (B, feature_dim*feature_layers)
 
 @pytest.mark.parametrize("padding", ["valid", "same"])
 @pytest.mark.parametrize("feature_layers", [1, 3, 5])
@@ -175,8 +176,9 @@ def test_darkflow_shared_multi_layer_padding(padding, feature_layers):
     B, C, H, W = 4, 3, 64, 64
     feature_dim = 8
 
+    # (B, F, C, T) → (B*F, C, T)
     model = DarkflowSharedMultilayerFeatureExtractor(
-        in_channels=C,
+        in_channels=H,
         feature_layers=feature_layers,
         feature_dim=feature_dim,
         kernel_size=3,
@@ -187,4 +189,4 @@ def test_darkflow_shared_multi_layer_padding(padding, feature_layers):
     x = torch.randn(B, C, H, W)
     y = model(x)
 
-    assert y.shape == (B, feature_dim)
+    assert y.shape == (B, feature_dim*feature_layers)
