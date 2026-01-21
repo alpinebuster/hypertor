@@ -4,6 +4,7 @@ import pytest
 import numpy as np
 import torch
 
+from hypertor.core import common_ht
 from hypertor.core import datasets
 
 
@@ -12,7 +13,12 @@ from hypertor.core import datasets
 # ------------------------------------------------------------
 
 
-def _make_data(batch_size: int, channels: int, flows_shape: int, num_labels: int) -> dict[int, np.ndarray]:
+def _make_data(
+    batch_size: int,
+    channels: int,
+    flows_shape: int,
+    num_labels: int,
+) -> tuple[common_ht.DatasetConfig, dict[int, np.ndarray]]:
     assert batch_size % num_labels == 0
     repetitions = batch_size // num_labels
 
@@ -25,7 +31,18 @@ def _make_data(batch_size: int, channels: int, flows_shape: int, num_labels: int
     labels = np.array(list(range(num_labels))*repetitions, dtype=np.int32)
     ds = datasets.HTDataset(images, labels)
 
-    return datasets.make_numpy_data(
+    dataset_info = common_ht.DatasetInfo(
+        num_labels=num_labels,
+        num_samples_per_label=repetitions,
+        transpose_samples=False,
+    )
+    data_config = common_ht.DatasetConfig(
+        dataset_name="dataset",
+        ds=ds,
+        dataset_info=dataset_info,
+    )
+
+    return data_config, datasets.make_numpy_data(
         ds,
         batch_size=batch_size,
         num_labels=num_labels,
@@ -63,7 +80,7 @@ def test_make_numpy_data(data_params):
     flows_shape = data_params["flows_shape"]
     num_labels = data_params["num_labels"]
 
-    data = _make_data(batch_size, channels, flows_shape, num_labels)
+    _, data = _make_data(batch_size, channels, flows_shape, num_labels)
 
     samples_per_label = batch_size // num_labels
     assert list(data.keys()) == list(range(num_labels))
@@ -77,14 +94,12 @@ def test_gen_get_batch(data_params):
     flows_shape = data_params["flows_shape"]
     num_labels = data_params["num_labels"]
 
-    data = _make_data(batch_size, channels, flows_shape, num_labels)
-    gen = datasets.TaskGenerator(data, num_labels)
+    data_config, data = _make_data(batch_size, channels, flows_shape, num_labels)
+    gen = datasets.TaskGenerator(data_config, data, num_labels)
 
     aug_config = datasets.AugmentationConfig(
         random_config=datasets.RandomizedAugmentationConfig(
-            rotation_probability=0.0,
             smooth_probability=0.0,
-            contrast_probability=0.0,
         )
     )
     images, labels, classes = gen.get_batch(
@@ -111,20 +126,12 @@ def test_gen_get_batch(data_params):
     "config",
     [
         dict(
-            rotation_probability=0.0,
             smooth_probability=0.0,
-            contrast_probability=0.0,
-            resize_probability=0.0,
             negate_probability=0.0,
-            roll_probability=0.0,
         ),
         dict(
-            rotation_probability=1.0,
             smooth_probability=1.0,
-            contrast_probability=1.0,
-            resize_probability=1.0,
             negate_probability=1.0,
-            roll_probability=1.0,
         ),
     ],
 )

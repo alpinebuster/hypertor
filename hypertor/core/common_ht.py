@@ -40,15 +40,9 @@ class DatasetConfig:
     num_unlabeled_per_class: int = 0
 
     # Data augmentation
-    rotation_probability: float = 0.0
     smooth_probability: float = 0.5
-    contrast_probability: float = 0.5
-    resize_probability: float = 0.0
     negate_probability: float = 0.0
-    roll_probability: float = 0.0
-    angle_range: float = 180.0
-    rotate_by_90: bool = False
-    apply_sample_augmentations: bool = False
+
     augment_individually: bool = False
 
 

@@ -15,16 +15,13 @@ python -m hypertor.train --num_layerwise_features=8 --default_num_channels=8 \
   --shared_feature_extractor_padding=same --layerwise_generator=joint \
   --nolw_use_nonlinear_feature --lw_weight_allocation=output --nolw_generate_bias \
   --nolw_generate_bn --nouse_decoder --noadd_trainable_weights --flows_shape=28 \
-  --balanced_batches --per_label_augmentation --rotation_probability=0.0 \
-  --boundary_probability=0.0 --smooth_probability=0.0 --contrast_probability=0.0 \
-  --resize_probability=0.0 --negate_probability=0.0 --roll_probability=0.0 \
-  --angle_range=30.0 --random_rotate_by_90 --train_dataset='darkflow:0-1149' \
+  --balanced_batches --per_label_augmentation \
+  --smooth_probability=0.0 --negate_probability=0.0 \
+  --train_dataset='darkflow:0-1149' \
   --test_dataset='darkflow:1200-1622' --eval_datasets='darkflow' \
   --num_task_evals=1024 --num_eval_batches=16 --eval_batch_size=100 \
-  --shuffle_labels_seed=2026 --test_rotation_probability=0.0 \
-  --test_smooth_probability=0.0 --test_contrast_probability=0.0 \
-  --test_resize_probability=0.0 --test_negate_probability=0.0 \
-  --test_roll_probability=0.0 --test_angle_range=-1.0 \
+  --shuffle_labels_seed=2026 \
+  --test_smooth_probability=0.0 --test_negate_probability=0.0 \
   --warmup_steps=0 --use_variable_proto --number_of_trained_cnn_layers=0 \
   --push_start=10000 --push_warmup_steps=3000 \
   --gpus=0 $@

@@ -168,19 +168,12 @@ def make_dataset_config(dataset_spec=""):
         use_label_subset=label_set,
         ds_split="train",
         data_dir=FLAGS.data_dir,
-        rotation_probability=FLAGS.rotation_probability,
         smooth_probability=FLAGS.smooth_probability,
-        contrast_probability=FLAGS.contrast_probability,
-        resize_probability=FLAGS.resize_probability,
         negate_probability=FLAGS.negate_probability,
-        roll_probability=FLAGS.roll_probability,
-        angle_range=FLAGS.angle_range,
-        rotate_by_90=FLAGS.random_rotate_by_90,
         per_label_augmentation=FLAGS.per_label_augmentation,
         cache_path=FLAGS.data_numpy_dir,
         balanced_batches=FLAGS.balanced_batches,
         shuffle_labels_seed=FLAGS.shuffle_labels_seed,
-        apply_sample_augmentations=FLAGS.apply_sample_augmentations,
         augment_individually=FLAGS.augment_samples_individually,
         num_unlabeled_per_class=FLAGS.unlabeled_samples_per_class,
     )
@@ -200,29 +193,16 @@ def make_test_dataset_config(dataset_spec=""):
         use_label_subset=label_set,
         ds_split=FLAGS.test_split,
         data_dir=FLAGS.data_dir,
-        rotation_probability=_default(
-            FLAGS.test_rotation_probability, FLAGS.rotation_probability
-        ),
         smooth_probability=_default(
             FLAGS.test_smooth_probability, FLAGS.smooth_probability
-        ),
-        contrast_probability=_default(
-            FLAGS.test_contrast_probability, FLAGS.contrast_probability
-        ),
-        resize_probability=_default(
-            FLAGS.test_resize_probability, FLAGS.resize_probability
         ),
         negate_probability=_default(
             FLAGS.test_negate_probability, FLAGS.negate_probability
         ),
-        roll_probability=_default(FLAGS.test_roll_probability, FLAGS.roll_probability),
-        angle_range=_default(FLAGS.test_angle_range, FLAGS.angle_range),
-        rotate_by_90=FLAGS.test_random_rotate_by_90,
         per_label_augmentation=FLAGS.test_per_label_augmentation,
         balanced_batches=FLAGS.balanced_batches,
         shuffle_labels_seed=FLAGS.shuffle_labels_seed,
         cache_path=FLAGS.data_numpy_dir,
-        apply_sample_augmentations=False,
         num_unlabeled_per_class=FLAGS.unlabeled_samples_per_class,
     )
 

@@ -32,6 +32,7 @@
         "randn",
         "scikit",
         "scipy",
+        "semisupervised",
         "setuptools",
         "tensorboard",
         "torchrun",

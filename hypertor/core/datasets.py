@@ -10,11 +10,8 @@ from typing import Any, Callable, Generator, \
 
 import numpy as np
 import torch
-import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-from torchvision.ops import roi_align
 import torchvision.transforms as T
-import torchvision.transforms.functional as TF
 
 from hypertor.core import common_ht
 
@@ -34,226 +31,15 @@ SupervisedSample = Tuple[
 ]
 
 
-# Range of the random alpha value controlling contrast enhancement augmentation.
-ALPHA_MIN = 0.5
-ALPHA_MAX = 2.5
-# Maximum resize fraction in the resize augmentation (0.3 means 70%-100% of the
-# original size).
-MAX_RESIZE = 0.3
-
-# Default image augmentation parameters
-HUE_MAX_DELTA = 0.2
-BRIGHTNESS_MAX_DELTA = 0.3
-LOWER_CONTRAST = 0.8
-UPPER_CONTRAST = 1.2
-MIN_CROP_FRACTION = 0.6
-
-
-def _get_random_bounding_box(
-    hw: torch.Tensor,
-    aspect_ratio: float = 1.0,
-    min_crop_fraction: float = 0.5,
-    new_height: Optional[Union[float, torch.Tensor]] = None,
-    dtype: torch.dtype = torch.int32,
-) -> torch.Tensor:
-    """Random bounding box with aspect_ratio and within (0, 0, hw[:,0], hw[:,1]).
-
-    Args:
-        hw: Tensor of shape (..., 2), last dimension is (height, width)
-        aspect_ratio: Desired width/height ratio
-        min_crop_fraction: Minimum fraction of original size
-        new_height: Optional fixed new height
-        dtype: Output dtype (torch.int32, torch.int64, torch.float32, etc.)
-
-    Returns:
-        Tensor: Bounding boxes of shape (..., 4), format (y1, x1, y2, x2)
-    """
-    hw = hw.float()
-    h = hw[..., 0] # height → y
-    w = hw[..., 1] # width  → x
-    if new_height is None:
-        min_height = torch.min(
-            h * min_crop_fraction,
-            w * min_crop_fraction/aspect_ratio,
-        )
-        max_height = torch.min(h, w/aspect_ratio)
-        new_h = min_height + (max_height - min_height) * torch.rand_like(h)
-    else:
-        if isinstance(new_height, torch.Tensor):
-            new_h = new_height.float()
-        else:
-            new_h = torch.tensor(new_height, dtype=torch.float32)
-
-    new_hw = torch.stack([new_h, new_h/aspect_ratio], dim=-1)
-    if dtype in [torch.int32, torch.int64]:
-        new_hw = torch.round(new_hw)
-
-    minval = torch.zeros_like(hw)
-    maxval = hw - new_hw
-
-    # Random top-left coordinate
-    tl = minval + (maxval - minval) * torch.rand_like(hw)
-    if dtype in [torch.int32, torch.int64]:
-        tl = torch.round(tl)
-
-    br = tl + new_hw
-    boxes = torch.concat((tl, br), dim=-1)
-    if dtype in [torch.int32, torch.int64]:
-        boxes = torch.round(boxes)
-
-    return boxes.to(dtype)
-
-def _crop_and_resize(
-    images: torch.Tensor, # (C, H, W) or (N, C, H, W)
-    bboxes: torch.Tensor, # (N, 4) -> Normalized (y1, x1, y2, x2)
-    target_size: Union[int, Tuple[int, int], list[int]],
-    methods: Union[str, Callable] = "BILINEAR",
-) -> torch.Tensor:
-    """Does crop and resize given normalized boxes.
-
-    Args:
-       images: (B, C, H, W) or (C, H, W)
-       bboxes: (B, 4) normalized [y1, x1, y2, x2]
-       target_size: int or (H, W)
-       methods: "bilinear" | "nearest" | (method1, method2)
-
-    Returns:
-       (B, C, target_H, target_W) or (C, target_H, target_W)
-    """
-    bboxes = bboxes.float()
-    if not isinstance(target_size, (tuple, list)):
-        target_size = [target_size, target_size]
-
-    squeeze = False
-    if images.dim() == 3:
-        # (C, H, W) → (1, C, H, W)
-        images = images.unsqueeze(dim=0)
-        # bbox (4,) → (1, 4)
-        bboxes = bboxes.unsqueeze(dim=0)
-        squeeze = True
-    B, _, H, W = images.shape
-
-    # --- normalized → absolute ---
-    # roi_align format: (batch_idx, x1, y1, x2, y2) ∈ pixel coords
-    # [y1, x1, y2, x2] ∈ [0, 1] → (x, y) ∈ [0, W-1] × [0, H-1]
-    y1, x1, y2, x2 = bboxes.unbind(dim=-1)
-    x1 = x1 * (W-1)
-    x2 = x2 * (W-1)
-    y1 = y1 * (H-1)
-    y2 = y2 * (H-1)
-
-    # roi_align format: (batch_idx, x1, y1, x2, y2)
-    batch_idx = torch.arange(B, device=images.device, dtype=torch.float32)
-    rois = torch.stack([batch_idx, x1, y1, x2, y2], dim=1)
-
-    # (num_rois, C, target_H, target_W)
-    out = roi_align( # type:ignore
-        input=images,
-        boxes=rois,
-        output_size=target_size,
-        spatial_scale=1.0,
-        sampling_ratio=-1,
-        aligned=True,
-    )
-    if methods == "nearest":
-        # roi_align only supports "bilinear"
-        out = torch.nn.functional.interpolate(
-            out, size=target_size, mode="nearest"
-        )
-
-    # When `images.dim() == 3`
-    if squeeze:
-        # (1, C, H, W) → (C, H, W)
-        out = out.squeeze(0)
-    return out
-
-def _random_crop_and_resize(
-    images: torch.Tensor,
-    target_size: Union[int, Tuple[int, int], list[int]],
-    min_crop_fraction: float = 0.5,
-    crop_size: Optional[float] = None,
-    methods: Union[str, Callable] = "BILINEAR",
-) -> torch.Tensor:
-    """All tensors are cropped to the same size and resized to target size."""
-    if not isinstance(target_size, (tuple, list)):
-        target_size = [target_size, target_size]
-
-    aspect_ratio = target_size[0] / target_size[1]
-
-    # Batch size from images
-    if images.dim() == 3:
-        batch_size = 1
-    else:
-        batch_size = images.shape[0]
-
-    bboxes = _get_random_bounding_box(
-        hw=torch.ones((batch_size, 2), device=images.device),
-        aspect_ratio=aspect_ratio,
-        min_crop_fraction=min_crop_fraction,
-        new_height=crop_size,
-        dtype=torch.float32,
-    )
-    return _crop_and_resize(images, bboxes, target_size, methods)
-
-def augment_samples(
-    images: torch.Tensor,
-    flows_shape: int | Tuple[int, int],
-    augment_individually: bool = False,
-    hue_delta: Optional[float] = None,
-    brightness_delta: Optional[float] = None,
-    contrast: Optional[Tuple[float, float]] = None,
-    min_crop_fraction: Optional[float] = None,
-) -> torch.Tensor:
-    """Standard image augmentation. Input / output range: [-1, 1]"""
-    assert flows_shape is not None
-
-    if hue_delta is None:
-        hue_delta = HUE_MAX_DELTA
-    if brightness_delta is None:
-        brightness_delta = BRIGHTNESS_MAX_DELTA
-    if contrast is None:
-        contrast = (LOWER_CONTRAST, UPPER_CONTRAST)
-    if min_crop_fraction is None:
-        min_crop_fraction = MIN_CROP_FRACTION
-
-    # === [-1,1] → uint8 ===
-    images = ((images + 1.0) * 128.0).clamp(0, 255).to(torch.uint8)
-
-    def _augment(image_tensor: torch.Tensor) -> torch.Tensor:
-        # image_tensor: (C, H, W) or (B, C, H, W)
-        out = TF.hflip(image_tensor) if torch.rand(()) < 0.5 else image_tensor
-        # hue_factor=`2*torch.rand(())-1` ∈ [-1, 1) -> [-hue_delta, +hue_delta]
-        out = TF.adjust_hue(out, hue_factor=hue_delta * (2*torch.rand(size=()).item() - 1))
-        # brightness_factor ∈ [1 - brightness_delta, 1 + brightness_delta]
-        out = TF.adjust_brightness(
-            out, brightness_factor=1.0 + brightness_delta * (2*torch.rand(size=()).item() - 1)
-        )
-        # contrast_factor ∈ [contrast[0], contrast[1]]
-        out = TF.adjust_contrast(
-            out,
-            contrast_factor=contrast[0] + (contrast[1] - contrast[0])*torch.rand(size=()).item(),
-        )
-        return out
-
-    if augment_individually:
-        # images: (N, C, H, W)
-        images = torch.stack([_augment(img) for img in images], dim=0)
-    else:
-        images = _augment(images)
-
-    images = images.float()/128.0 - 1.0
-    return _random_crop_and_resize(
-        images,
-        flows_shape,
-        min_crop_fraction=min_crop_fraction,
-    )
-
-
 def get_dataset_info(dataset_name: str) -> DatasetInfo:
     """Returns basic information about the dataset."""
     if dataset_name == "darkflow":
         return DatasetInfo(
             num_labels=62, num_samples_per_label=1500, transpose_samples=True
+        )
+    elif dataset_name == "lexnetflow":
+        return DatasetInfo(
+            num_labels=1623, num_samples_per_label=20, transpose_samples=False
         )
     elif dataset_name == "omniglot":
         return DatasetInfo(
@@ -267,15 +53,8 @@ def get_dataset_info(dataset_name: str) -> DatasetInfo:
 class RandomizedAugmentationConfig:
     """Specification of random augmentations applied to the samples."""
 
-    rotation_probability: float = 0.5
     smooth_probability: float = 0.3
-    contrast_probability: float = 0.3
-    resize_probability: float = 0.0
     negate_probability: float = 0.0
-    roll_probability: float = 0.0
-    angle_range: float = 180.0
-    roll_range: float = 0.3
-    rotate_by_90: bool = False
 
 @dataclasses.dataclass
 class _RandomValue:
@@ -307,19 +86,10 @@ class AugmentationConfig:
 
     random_config: Optional[RandomizedAugmentationConfig] = None
 
-    rotate: _RandomValue = dataclasses.field(default_factory=_RandomValue)
     smooth: _RandomValue = dataclasses.field(default_factory=_RandomValue)
-    contrast: _RandomValue = dataclasses.field(default_factory=_RandomValue)
     negate: _RandomValue = dataclasses.field(default_factory=_RandomValue)
-    roll: _RandomValue = dataclasses.field(default_factory=_RandomValue)
-    resize: _RandomValue = dataclasses.field(default_factory=_RandomValue)
 
-    angle: _RandomValue = dataclasses.field(default_factory=_RandomValue)
-    alpha: _RandomValue = dataclasses.field(default_factory=_RandomValue)
     size: _RandomValue = dataclasses.field(default_factory=_RandomValue)
-    roll_x: _RandomValue = dataclasses.field(default_factory=_RandomValue)
-    roll_y: _RandomValue = dataclasses.field(default_factory=_RandomValue)
-    rotate_90_times: _RandomValue = dataclasses.field(default_factory=_RandomValue)
 
     children: list["AugmentationConfig"] = dataclasses.field(default_factory=list)
 
@@ -327,18 +97,11 @@ class AugmentationConfig:
         if self.children:
             return
 
-        for name in ["rotate", "smooth", "contrast", "negate", "resize", "roll"]:
+        for name in ["smooth", "negate"]:
             attr = getattr(self, name)
             if attr.value is None:
                 attr.value = False # Default bool: False
-        for name in [
-            "angle",
-            "alpha",
-            "size",
-            "roll_x",
-            "roll_y",
-            "rotate_90_times",
-        ]:
+        for name in ["size"]:
             attr = getattr(self, name)
             if attr.value is None:
                 attr.value = 0.0  # Default float: 0.0
@@ -354,24 +117,10 @@ class AugmentationConfig:
 
         cfg = self.random_config
 
-        self.rotate.assign_bool(cfg.rotation_probability)
         self.smooth.assign_bool(cfg.smooth_probability)
-        self.contrast.assign_bool(cfg.contrast_probability)
         self.negate.assign_bool(cfg.negate_probability)
-        self.resize.assign_bool(cfg.resize_probability)
-        self.roll.assign_bool(cfg.roll_probability)
-
-        self.angle.assign_uniform(cfg.angle_range)
 
         self.size.assign_uniform(1.0)
-        self.alpha.assign_uniform(1.0)
-
-        # [-roll_range, +roll_range)
-        self.roll_x.assign_uniform(cfg.roll_range)
-        self.roll_y.assign_uniform(cfg.roll_range)
-
-        # TF: scale=2.0 → U(-2, 2)
-        self.rotate_90_times.assign_uniform(2.0)
 
     def _build_transform(self) -> T.Compose:
         cfg = self.random_config
@@ -379,24 +128,8 @@ class AugmentationConfig:
         if cfg is None:
             return T.Compose(transforms)
 
-        if cfg.rotate_by_90 and self.rotate_90_times.value:
-            # -> 0..3
-            k = int(math.floor(self.rotate_90_times.value + 2.0)) % 4
-            angle = k * 90
-            # When passing [angle, angle], it means "randomly select an angle within the [angle, angle] interval", 
-            # with the interval length being 0. The result is that each rotation is fixed at `angle`
-            transforms.append(T.RandomRotation([angle, angle]))
-
-        if cfg.rotation_probability > 0. and self.rotate.value:
-            transforms.append(
-                T.RandomRotation([self.angle.value, self.angle.value]) # In degree
-            )
-
         if cfg.smooth_probability > 0. and self.smooth.value:
             transforms.append(T.GaussianBlur(kernel_size=3))
-
-        if cfg.contrast_probability > 0. and self.contrast.value:
-            transforms.append(T.ColorJitter(contrast=0.5))
 
         if cfg.negate_probability > 0. and self.negate.value:
             transforms.append(T.RandomInvert(p=1.))
@@ -407,6 +140,7 @@ class AugmentationConfig:
         self,
         images: Union[torch.Tensor, np.ndarray],
         index: Optional[int] = None,
+        augment_individually: bool = False,
     ) -> torch.Tensor:
         """
         images: [B, C, H, W]
@@ -415,7 +149,10 @@ class AugmentationConfig:
            [B, C, H, W]
         """
         if index is not None:
-            return self.children[index].process(images)
+            return self.children[index].process(
+                images,
+                augment_individually=augment_individually,
+            )
 
         if isinstance(images, torch.Tensor):
             imgs = images
@@ -423,10 +160,16 @@ class AugmentationConfig:
             imgs = torch.from_numpy(images)
 
         # BCHW
-        self.transform = self._build_transform()
         out = []
-        for img in imgs:
-            out.append(self.transform(img))
+        if augment_individually:
+            for img in imgs:
+                self.randomize()
+                self.transform = self._build_transform()
+                out.append(self.transform(img))
+        else:
+            self.transform = self._build_transform()
+            for img in imgs:
+                out.append(self.transform(img))
 
         return torch.stack(out)
 
@@ -437,11 +180,13 @@ class TaskGenerator:
 
     def __init__(
         self,
+        data_config: common_ht.DatasetConfig,
         data: dict[Any, np.ndarray],
         num_labels: int,
         always_same_labels=False,
         use_label_subset: Optional[UseLabelSubset] = None,
     ):
+        self.data_config = data_config
         self.data = data
         self.num_labels = num_labels
         self.always_same_labels = always_same_labels
@@ -610,11 +355,14 @@ class TaskGenerator:
             # Processing and combining in batches
             if config.children:
                 images = [
-                    config.process(image_mat, idx)
+                    config.process(image_mat, idx, self.data_config.augment_individually)
                     for idx, image_mat in enumerate(images)
                 ]
             else:
-                images = [config.process(image_mat) for image_mat in images]
+                images = [
+                    config.process(image_mat, augment_individually=self.data_config.augment_individually)
+                    for image_mat in images
+                ]
             images_labels.append(
                 (
                     torch.cat(images, dim=0), # (batch_size, H, W)
@@ -654,7 +402,7 @@ class TaskGenerator:
         labels = torch.from_numpy(labels)
         classes = torch.from_numpy(classes)
         # Augmentation
-        images = config.process(images)
+        images = config.process(images, augment_individually=self.data_config.augment_individually)
 
         # NOTE:
         # Here, a full-batch random shuffle is performed, followed by the subsequent steps:

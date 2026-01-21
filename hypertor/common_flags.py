@@ -53,27 +53,10 @@ flags.DEFINE_float("dropout_rate", 0.0, "Transformer dropout rate.")
 flags.DEFINE_float("cnn_dropout_rate", 0.0, "CNN dropout rate.")
 flags.DEFINE_float("label_smoothing", 0.0, "Cross-entropy label smoothing.")
 
-flags.DEFINE_float(
-    "rotation_probability",
-    0.0,
-    "Probability of applying a random rotation to an image.",
-)
-flags.DEFINE_float(
-    "boundary_probability", 0.0, "Probability of extracting image boundary."
-)
-flags.DEFINE_float("smooth_probability", 0.5, "Probability of smoothing an image.")
-flags.DEFINE_float(
-    "contrast_probability", 0.5, "Probability of increasing image contrast."
-)
-flags.DEFINE_float("resize_probability", 0.0, "Probability of resizing an image.")
-flags.DEFINE_float("negate_probability", 0.0, "Probability of negating an image.")
-flags.DEFINE_float("roll_probability", 0.0, "Probability of rolling the image.")
-flags.DEFINE_float("angle_range", 180.0, "Random angle variation.")
-flags.DEFINE_bool(
-    "random_rotate_by_90",
-    False,
-    "If set, the augmentation is a random rotation by 0, 90, 180, or 270 degrees.",
-)
+flags.DEFINE_float("smooth_probability", 0.5, "Probability of smoothing an sample.")
+flags.DEFINE_float("negate_probability", 0.0, "Probability of negating an sample.")
+
+
 flags.DEFINE_enum(
     "layerwise_generator",
     "joint",
@@ -191,32 +174,14 @@ flags.DEFINE_integer(
 )
 
 flags.DEFINE_string("test_dataset", "emnist:8-61", "Test dataset specification.")
+
 flags.DEFINE_float(
-    "test_rotation_probability",
-    -1,
-    "Probability of applying a random rotation to a test image.",
-)
-flags.DEFINE_float(
-    "test_smooth_probability", -1, "Probability of smoothing a test image."
+    "test_smooth_probability", -1, "Probability of smoothing a test sample."
 )
 flags.DEFINE_float(
-    "test_contrast_probability", -1, "Probability of increasing test image contrast."
+    "test_negate_probability", -1, "Probability of negating a test sample."
 )
-flags.DEFINE_float(
-    "test_resize_probability", -1, "Probability of resizing a test image."
-)
-flags.DEFINE_float(
-    "test_negate_probability", -1, "Probability of negating a test image."
-)
-flags.DEFINE_float(
-    "test_roll_probability", -1, "Probability of rolling a test image."
-)
-flags.DEFINE_float("test_angle_range", -1, "Random angle variation for test images.")
-flags.DEFINE_bool(
-    "test_random_rotate_by_90",
-    False,
-    "Random rotation by 0, 90, 180, or 270 degrees for test images.",
-)
+
 flags.DEFINE_bool(
     "test_per_label_augmentation",
     False,
@@ -283,12 +248,6 @@ flags.DEFINE_enum(
     ["valid", "same"],
     "Convolutional layer padding to use in the shared feature extractor.",
 )
-
-flags.DEFINE_bool(
-    "apply_sample_augmentations",
-    False,
-    "If set, random typical image augmentation is applied to each image.",
-)
 flags.DEFINE_integer(
     "default_num_channels", 16, "Default number of CNN channels for each layer."
 )
@@ -324,7 +283,7 @@ flags.DEFINE_float("fe_dropout", 0.0, "Local feature extractor dropout.")
 flags.DEFINE_bool(
     "augment_samples_individually",
     False,
-    "If set, each image is augmented individually.",
+    "If set, each sample is augmented individually.",
 )
 
 flags.DEFINE_float("l2_reg_weight", 0.0, "Regularization weight.")

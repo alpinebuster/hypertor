@@ -14,7 +14,6 @@ import torch
 import torch.nn.functional as F
 
 from hypertor.core import common_ht
-from hypertor.variable_proto import common_vp
 from hypertor.core.common_ht import LayerwiseModelConfig, DatasetConfig
 from hypertor.core import datasets
 from hypertor.core import util
@@ -23,14 +22,8 @@ from hypertor.core import util
 def _make_augmentation_config(data_config: DatasetConfig, num_labels: int):
     """Returns dataset augmentation configuration."""
     random_config = datasets.RandomizedAugmentationConfig(
-        rotation_probability=data_config.rotation_probability,
         smooth_probability=data_config.smooth_probability,
-        contrast_probability=data_config.contrast_probability,
-        resize_probability=data_config.resize_probability,
         negate_probability=data_config.negate_probability,
-        roll_probability=data_config.roll_probability,
-        angle_range=data_config.angle_range,
-        rotate_by_90=data_config.rotate_by_90,
     )
     if data_config.per_label_augmentation:
         return datasets.AugmentationConfig(
@@ -171,6 +164,7 @@ def _make_dataset_helper_unbalanced(
     config = _make_augmentation_config(data_config=data_config, num_labels=num_labels)
 
     gen = datasets.TaskGenerator(
+        data_config,
         numpy_arr,
         num_labels=num_labels,
         use_label_subset=data_config.use_label_subset,
@@ -207,6 +201,7 @@ def _make_dataset_helper_balanced(
     config = _make_augmentation_config(data_config=data_config, num_labels=num_labels)
 
     gen = datasets.TaskGenerator(
+        data_config,
         numpy_arr,
         num_labels=num_labels,
         use_label_subset=data_config.use_label_subset,
@@ -364,30 +359,15 @@ def make_dataset(
           Transformer: [0, 0, 0, 1, 1, 3]
           CNN: [2, 2, 2, 4, 4]
     """
-    augment = functools.partial(
-        datasets.augment_samples,
-        augment_individually=data_config.augment_individually,
-    )
-
     if data_config.balanced_batches:
         # The two batches are "generated separately".
         dataset_maker = _make_dataset_balanced
     else:
         dataset_maker = _make_dataset_unbalanced
 
-    output = dataset_maker(
+    return dataset_maker(
         numpy_arr=numpy_arr,
         model_config=model_config,
         data_config=data_config,
         **kwargs,
     )
-    if data_config.apply_sample_augmentations:
-        assert model_config.flows_shape is not None
-        flows_shape = model_config.flows_shape
-        output = dataclasses.replace(
-            output,
-            transformer_samples=augment(output.transformer_samples, flows_shape),
-            cnn_samples=augment(output.cnn_samples, flows_shape),
-        )
-
-    return output
