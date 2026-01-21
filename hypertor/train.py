@@ -149,6 +149,7 @@ def make_layerwise_model_config():
         l2_reg_weight=FLAGS.l2_reg_weight,
         logits_feature_extractor=FLAGS.logits_feature_extractor,
         shared_head_weight=common_flags.SHARED_HEAD_WEIGHT.value,
+        use_darkflow=FLAGS.use_darkflow,
         use_variable_proto=FLAGS.use_variable_proto,
         use_prior_proto=FLAGS.use_prior_proto,
         use_l_mask=FLAGS.use_l_mask,

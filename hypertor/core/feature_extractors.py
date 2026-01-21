@@ -101,7 +101,7 @@ class SimpleConvFeatureExtractor(FeatureExtractor):
         outputs = []
 
         for conv in self.convs:
-            # TensorFlow -> BHWC, `if int(tensor.shape[1]) < kernel_size: break``
+            # TensorFlow -> BHWC, `if int(tensor.shape[1]) < kernel_size: break`
             # PyTorch    -> BCHW, spatial dims are [-2], [-1]
             if tensor.shape[-2] < self.kernel_size or tensor.shape[-1] < self.kernel_size:
                 logging.info(
@@ -276,6 +276,154 @@ class PassthroughFeatureExtractor(FeatureExtractor):
         return output
 
 
+class DarkflowSharedMultilayerFeatureExtractor(FeatureExtractor):
+    """Darkflow 1d convolutional feature extractor.
+
+    1) Input -> (B, F, C, T)
+       a) B: batch
+       b) F: flows (independent of each other)
+       c) C: packet characteristics
+       d) T: time order (packet sequence)
+
+    2) Process:
+       → (B*F, C, T), reshape
+       → (B*F, K, T'), stacked Conv1d over T
+       → (B*F, K), temporal pooling
+       → (B, F, K), reshape
+       → (B, K), flow pooling
+       → (B, K*feature_layers)
+
+    3) Core principles:
+       a) The only dimension that can be slid is T (time).
+       b) Do not slide in the flow dimension & feature dimension.
+       c) Do not mix packet characteristics.
+    """
+
+    def __init__(
+        self,
+        in_channels: int, # Flows
+        feature_layers: int,
+        feature_dim: int, # K, Number of Conv1D filters
+        name: str,
+        nonlinear_feature: bool = False,
+        kernel_size: int = 3,
+        padding: str = "valid",
+        use_bn: bool = False,
+        time_pool: str = "mean", # "mean" or "max"
+        flow_pool: str = "mean", # "mean" or "max"
+    ):
+        super().__init__(name=name)
+
+        assert in_channels > 0
+        assert feature_dim > 0
+        assert padding in ("same", "valid")
+        assert time_pool in ("mean", "max")
+        assert flow_pool in ("mean", "max")
+
+        self.feature_dim = feature_dim
+        self.nonlinear_feature = nonlinear_feature
+        self.kernel_size = kernel_size
+        self.use_bn = use_bn
+        self.padding = padding
+        self.time_pool = time_pool
+        self.flow_pool = flow_pool
+
+        """
+        ### Example: 
+
+        Three layers:
+           * Layer 1 (k = 3): observes patterns over **3 packets**
+           * Layer 2 (k = 3): observes patterns over **5 packets**
+           * Layer 3 (k = 1): still observes **5 packets**, but **only performs feature mixing** (no further temporal expansion)
+
+        At the same time:
+
+        | Layer depth    | T_i (temporal length) | Behavioral meaning                        |
+        | -------------- | --------------------- | ----------------------------------------- |
+        | Shallow layers | Large                 | Short, local packet patterns              |
+        | Deeper layers  | Small                 | Longer-term, more stable packet behaviors |
+        """
+        self.convs = nn.ModuleList()        
+        self.bns = nn.ModuleList()
+        for idx in range(feature_layers):
+            # BatchNorm relies on "channel consistency across samples", and LayerNorm depends on "overall stability of a single sample".
+            if use_bn:
+                self.bns.append(nn.BatchNorm2d(num_features=feature_dim))
+            else:
+                self.bns.append(nn.Identity())
+
+            self.convs.append(
+                nn.Conv1d(
+                    in_channels=in_channels if idx == 0 else feature_dim,
+                    out_channels=feature_dim,
+                    # Previous layer k>1 -> Discover local packet behavior
+                    # Final layer k=1 -> Combine these behaviors without introducing new temporal relationships
+                    # 
+                    # if stride==1 and (padding=="valid" or padding==0):
+                    #     T_out = T_in - (k-1)
+                    kernel_size=kernel_size if idx<feature_layers-1 else 1,
+                    stride=1, # stride=1: No packet loss
+                    padding="same" if padding=="same" else 0,
+                    bias=True,
+                )
+            )
+
+    def forward(self, x: torch.Tensor) -> Optional[torch.Tensor]:
+        """
+        x: (B, F, C, T)
+        """
+        if not self.convs:
+            return None
+
+        B_x, F_x, C_x, T_x = x.shape
+        # (B, F, C, T) → (B*F, C, T)
+        tensor = x.view(B_x*F_x, C_x, T_x)
+        outputs = []
+        for conv, bn in zip(self.convs, self.bns):
+            conv = cast(nn.Conv1d, conv)
+
+            import pdb
+            pdb.set_trace()
+            # Conv1d only slides on T
+            # Each layer: (B*F, C, T) → (B*F, K, T_i)
+            tensor = conv(tensor)
+            # (B*F, K, T_i) -> BN over dimension K (or [B*F, T_i])
+            tensor = bn(tensor)
+
+            # feature before / after nonlinearity
+            feature = tensor
+            # While the output is not employing nonlinearity, layer-to-layer
+            # transformations use it.
+            tensor = F.relu(tensor)
+
+            if self.nonlinear_feature:
+                feature = tensor
+
+            outputs.append(feature)
+
+        # Each layer: (B*F, K, T_i) → (B*F, K)
+        pooled = []
+        for feat in outputs:
+            if self.time_pool == "max":
+                feat = torch.max(feat, dim=-1).values
+            else:
+                feat = torch.mean(feat, dim=-1)
+            pooled.append(feat)
+
+        # Concat over layers: (B*F, feature_layers*K)
+        feat = torch.cat(pooled, dim=-1)
+        # (B*F, ·) → (B, F, ·)
+        feat = feat.view(B_x, F_x, -1)
+        # Flow pooling
+        if self.flow_pool == "max":
+            feat = torch.max(feat, dim=1).values
+        else:
+            feat = torch.mean(feat, dim=1)
+
+        # (B, feature_layers*K)
+        return feat
+
+
 class SharedHead(nn.Module):
     def __init__(
         self,
@@ -321,14 +469,24 @@ class SharedHead(nn.Module):
 
 
 def fe_multi_layer(config: LayerwiseModelConfig, num_layers=2, use_bn=False):
-    return SharedMultilayerFeatureExtractor(
-        feature_layers=num_layers,
-        feature_dim=config.shared_features_dim,
-        in_channels=config.shared_input_dim,
-        name="shared_features",
-        padding=config.shared_feature_extractor_padding,
-        use_bn=use_bn,
-    )
+    if config.use_darkflow:
+        return DarkflowSharedMultilayerFeatureExtractor(
+            in_channels=config.shared_input_dim,
+            feature_layers=num_layers,
+            feature_dim=config.shared_features_dim,
+            name="shared_darkflow_features",
+            padding=config.shared_feature_extractor_padding,
+            use_bn=use_bn,
+        )
+    else:
+        return SharedMultilayerFeatureExtractor(
+            in_channels=config.shared_input_dim,
+            feature_layers=num_layers,
+            feature_dim=config.shared_features_dim,
+            name="shared_features",
+            padding=config.shared_feature_extractor_padding,
+            use_bn=use_bn,
+        )
 
 
 feature_extractors = {

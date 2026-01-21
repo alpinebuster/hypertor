@@ -1601,6 +1601,8 @@ class LayerwiseModel(nn.Module):
         all_weight_blocks = []
         all_head_blocks = {}
 
+        # inputs -> [BCHW]
+        # shared_features -> [B, feature_layers*feature_dim]
         shared_features = None
         if self.shared_feature_extractor is not None:
             shared_features = self.shared_feature_extractor(inputs)

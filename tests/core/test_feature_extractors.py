@@ -3,7 +3,8 @@ import torch.nn as nn
 import pytest
 
 from hypertor.core.feature_extractors import SimpleConvFeatureExtractor, \
-    SharedMultilayerFeatureExtractor, PassthroughFeatureExtractor
+    SharedMultilayerFeatureExtractor, PassthroughFeatureExtractor, \
+    DarkflowSharedMultilayerFeatureExtractor
 
 
 # ------------------------------------------------------------
@@ -140,3 +141,50 @@ def test_pass_with_wrap_class():
     y = model(x)
 
     assert y.shape == (B, C*H*W + D)
+
+
+# ------------------------------------------------------------
+#   Class `DarkflowSharedMultilayerFeatureExtractor` Tests
+# ------------------------------------------------------------
+
+
+@pytest.mark.parametrize("use_bn", [True, False])
+@pytest.mark.parametrize("feature_layers", [1, 3, 5])
+def test_darkflow_shared_basic(use_bn, feature_layers):
+    B, C, H, W = 4, 3, 64, 64
+    feature_dim = 8
+
+    model = DarkflowSharedMultilayerFeatureExtractor(
+        in_channels=C,
+        feature_layers=feature_layers,
+        feature_dim=feature_dim,
+        kernel_size=3,
+        padding="valid",
+        use_bn=use_bn,
+        name="test_shared_basic",
+    )
+
+    x = torch.randn(B, C, H, W)
+    y = model(x)
+
+    assert y.shape == (B, feature_dim)
+
+@pytest.mark.parametrize("padding", ["valid", "same"])
+@pytest.mark.parametrize("feature_layers", [1, 3, 5])
+def test_darkflow_shared_multi_layer_padding(padding, feature_layers):
+    B, C, H, W = 4, 3, 64, 64
+    feature_dim = 8
+
+    model = DarkflowSharedMultilayerFeatureExtractor(
+        in_channels=C,
+        feature_layers=feature_layers,
+        feature_dim=feature_dim,
+        kernel_size=3,
+        padding=padding,
+        name="test_shared_multi_layer_padding",
+    )
+
+    x = torch.randn(B, C, H, W)
+    y = model(x)
+
+    assert y.shape == (B, feature_dim)

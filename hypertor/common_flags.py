@@ -328,3 +328,8 @@ flags.DEFINE_bool(
     False,
     "If set, use PyTorch DistributedDataParallel for multi-GPU training.",
 )
+flags.DEFINE_bool(
+    "use_darkflow",
+    True,
+    "If enabled, utilizes DarkFlow features."
+)

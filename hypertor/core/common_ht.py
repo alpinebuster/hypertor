@@ -174,6 +174,9 @@ class LayerwiseModelConfig(ModelConfig):
     max_prob_remove_unlabeled: float = 0
     max_prob_remove_labeled: float = 0
 
+    # -- Darkflow dataset parameters
+    use_darkflow: bool = True
+
     # -- Variable prototype parameters
     use_variable_proto: bool = True
     use_prior_proto: bool = True
