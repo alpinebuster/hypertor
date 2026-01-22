@@ -17,6 +17,7 @@
         "ipykernel",
         "journalctl",
         "kaiming",
+        "keepdims",
         "layerwise",
         "lexnet",
         "MAML",

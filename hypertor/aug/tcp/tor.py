@@ -9,6 +9,20 @@ import torch
 
 
 class TCPSequenceSimulator:
+    """
+    1. Nagle, aggregating small packets
+
+    2. Packet Duplication (TCP Retransmission/Fragmentation)
+       2.1 RTO Timeout Retransmission 
+        → t_retx = t_original + RTO, originally
+        →1 large packet → divided into 2-3 small packets  
+       2.2 Fast Retransmission
+        → t_retx = t_original + 3×mean_iat
+    
+    3. Packet Sequence Shift (Out-of-Order Arrival)
+    4. Packet Loss
+    """
+
     def __init__(
         self,
         data,
@@ -104,9 +118,9 @@ class TCPSequenceSimulator:
         """
         Simulate Nagle's algorithm by aggregating small packets into larger ones based on RTT and MSS.
 
-        :param in_seq: e.g., [3, 4, 5, 1460, 1460, 1200]
+        :param in_seq: e.g., [1300, 1400, 500, 1460, 1460, 1200]
         :param mss: e.g., 1460
-        :return: e.g., [3, 4, 5, 1460, 1460, 1200] or [3, 9, 1460, 1460, 1200], etc.
+        :return: e.g., [1300, 1400, 500, 1460, 1460, 1200] or [300, 1900, 1460, 1460, 1200], etc.
         """
         res: list[Any] = []
         res.append(in_seq.pop(0))
