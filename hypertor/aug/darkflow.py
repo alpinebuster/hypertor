@@ -5,10 +5,20 @@
 # and extensible general traffic feature group.
 #
 
+import os
 import ast
 
+from absl import app, flags, logging
 import numpy as np
 import pandas as pd
+
+from hypertor.aug.tcp import TCPSequenceSimulator
+from hypertor.core import util
+from hypertor import common_flags  # pylint:disable=unused-import
+from hypertor import eval_model_flags  # pylint:disable=unused-import
+from hypertor import variable_proto_flags  # pylint:disable=unused-import
+
+FLAGS = flags.FLAGS
 
 
 def get_inter_diff_by_stream(arr: list[float], coefs: float = 1.0) -> list[float]:
@@ -45,18 +55,30 @@ def log_min_max_normalize_np(arr: np.ndarray):
     arr = np.log1p(arr)
     return min_max_normalize_np(arr)
 
-def df_to_normalized_numpy(df: pd.DataFrame, target_len: int = 30):
+def df_to_normalized_numpy(
+    df: pd.DataFrame,
+    target_len: int = 30,
+    drop_len: int = 3,
+) -> tuple[np.ndarray, list[str]]:
     cols_small = ['pkt_dir_seq', 'fin_seq','syn_seq','rst_seq','psh_seq','ack_seq',
                   'urg_seq','cwr_seq','ece_seq','ip_df_seq','ip_mf_seq']
     cols_numeric = ['pkt_len_seq', 'tcp_window_seq']
     cols_large = ['pkt_usec_seq', 'ttl_seq']
 
     all_cols = cols_small + cols_numeric + cols_large
+    logging.info(f"len(df): {len(df)}")
+
+    # Discard the rows with a sequence length less than `drop_len`
+    seq_len = df['pkt_dir_seq'].apply(
+        lambda x: len(parse_list_column(x))
+    )
+    df = df[seq_len>=drop_len].reset_index(drop=True)
+
     num_samples = len(df)
     num_features = len(all_cols)
     X = np.zeros((num_samples, num_features, target_len), dtype=np.float32)
 
-    def _replenish_list(_list: list, _target_len: int = 30) -> list:
+    def _fit_list(_list: list, _target_len: int = 30) -> list:
         if len(_list) < _target_len:
             _list.extend([0] * (_target_len-len(_list)))
         else:
@@ -67,7 +89,7 @@ def df_to_normalized_numpy(df: pd.DataFrame, target_len: int = 30):
     for j, col in enumerate(all_cols):
         # `apply`: call the specified function once for each element of the Series
         lists = df[col].apply(parse_list_column) # list of list
-        lists = lists.apply(lambda l: _replenish_list(l, target_len))
+        lists = lists.apply(lambda l: _fit_list(l, target_len))
 
         X[:, j, :] = np.stack(lists.to_list(), axis=0)
 
@@ -83,7 +105,7 @@ def df_to_normalized_numpy(df: pd.DataFrame, target_len: int = 30):
 
     return X, all_cols
 
-if __name__ == "__main__":
+def main(argv):
     """
     Run from `hypertor` project's root dir
 
@@ -129,11 +151,26 @@ if __name__ == "__main__":
         ↓ 
        3) Convert to a 5D tensor [all_classes, all_samples, C, H, W]
     """
+    # The command-line parameters have been parsed by absl.
+    if len(argv) > 1:
+        del argv
 
+    gpus: str = FLAGS.gpus
+    if gpus is None or gpus == "all":
+        os.environ.pop("CUDA_VISIBLE_DEVICES", None)
+    else:
+        os.environ["CUDA_VISIBLE_DEVICES"] = gpus
+    util.print_gpu_detailed_info()
+
+    label = ""
     df = pd.read_csv('./data/newrealtime2.csv', encoding='utf-8-sig')
-    print(df.head())
+    logging.info(df.head())
+    # X -> [samples, H, W]
     X, col_order = df_to_normalized_numpy(df)
 
-    print("X shape:", X.shape)  # (num_samples, num_features, seq_len)
-    print("channels:", col_order)
-    # Traverse each row and parse the string list of each column into a Python list
+    logging.info(f"X.shape: {X.shape}") # (num_samples, num_features, seq_len)
+    logging.info(f"Columns: {col_order}")
+
+
+if __name__ == "__main__":
+    app.run(main)

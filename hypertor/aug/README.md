@@ -2,6 +2,8 @@
 
 The Vec is converted to string representation in csv file.
 
+## CSV Format
+
 ```txt
 "pkt_dir_seq": Vec<i32>, // Direction (/ -)
 "pkt_len_seq": Vec<i32>,
@@ -24,6 +26,19 @@ The Vec is converted to string representation in csv file.
 "ip_df_seq": Vec<u8>,
 "ip_mf_seq": Vec<u8>,
 ```
+
+### Classes
+
+Perform a two-stage classification: first determine if the flow is Tor, then classify it into one of seven traffic categories.
+
+- Browsing
+- Email
+- Chat
+- Audio/Video Streaming
+- FTP
+- VoIP
+- P2P
+
 
 ## Getting started
 

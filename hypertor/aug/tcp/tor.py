@@ -1,11 +1,44 @@
 import random
+import dataclasses
+import os
+import functools
 
-from typing import Any, Optional, Tuple
+from typing import Any, Optional
 
+from absl import app, flags, logging
+import pandas as pd
 import numpy as np
-from scipy.stats import expon # type: ignore
-from sklearn.preprocessing import LabelEncoder # type: ignore
 import torch
+
+FLAGS = flags.FLAGS
+
+
+@dataclasses.dataclass
+class TCPAugmentationConfig:
+    """TCP augmentation configuration."""
+
+    simulate_nagle: bool = False
+    simulate_packet_shift: bool = False
+    simulate_packet_loss: bool = False
+    simulate_packet_duplication: bool = False
+
+    max_rate: float = 0.704
+    max_rtt: float = 0.011
+    mss: int = 1460
+    seed: Optional[int] = None
+    anomaly_delay: float = 0.3 # 300 ms, normal RTT: 10-50 ms, peak RTT: 150-300+ ms
+    loc: float = 6e-06 # 6 μs
+    scale: float = 0.012 # 12 ms
+    seq_len: int = 100
+
+def make_tcp_augmentation_config():
+    return TCPAugmentationConfig(
+        simulate_nagle=FLAGS.simulate_nagle,
+        simulate_packet_shift=FLAGS.simulate_packet_shift,
+        simulate_packet_loss=FLAGS.simulate_packet_loss,
+        simulate_packet_duplication=FLAGS.simulate_packet_duplication,
+        seq_len=FLAGS.tcp_seq_len,
+    )
 
 
 class TCPSequenceSimulator:
@@ -13,7 +46,7 @@ class TCPSequenceSimulator:
     1. Nagle, aggregating small packets
 
     2. Packet Duplication (TCP Retransmission/Fragmentation)
-       2.1 RTO Timeout Retransmission 
+       2.1 RTO (Retransmission Timeout) 
         → t_retx = t_original + RTO, originally
         →1 large packet → divided into 2-3 small packets  
        2.2 Fast Retransmission
@@ -25,51 +58,38 @@ class TCPSequenceSimulator:
 
     def __init__(
         self,
-        data,
-        max_rate: float = 0.3,
-        max_rtt: float = 0.01,
-        enable_nagle: bool = True,
-        mss: int = 1460,
-        seed: Optional[int] = None,
-        anomaly_delay: float = 0.3, # 300 ms, normal RTT: 10-50 ms, peak RTT: 150-300+ ms
-        loc: float = 6e-06, # 6 μs
-        scale: float = 0.012, # 12 ms
-        seq_len: int = 100,
-        patch_size: int = 10,
+        aug_config: TCPAugmentationConfig,
+        data: np.ndarray,
+        labels: np.ndarray,
     ):
-        if seed is not None:
-            random.seed(seed)
+        self.aug_config = aug_config
+
+        if self.aug_config.seed is not None:
+            random.seed(self.aug_config.seed)
 
         # TCP: Round Trip Time
-        self.max_rtt = max_rtt
-        # TCP: Nagle Algorithm
-        self.enable_nagle = enable_nagle
+        self.max_rtt = self.aug_config.max_rtt
         # TCP: Maximum Segment Size
         # MSS = ETHER_MTU - IP_HEADER - TCP_HEADER 
         #     = 1500 - 20 - 20
         #     = 1460 bytes
-        self.mss = mss
+        self.mss = self.aug_config.mss
 
-        self.max_rate = max_rate
-        self.anomaly_delay = anomaly_delay
-        self.loc = loc
-        self.scale = scale
-        self.seq_len = seq_len
-        self.patch_size = patch_size
-        self.label_encoder = LabelEncoder()
+        self.max_rate = self.aug_config.max_rate
+        self.anomaly_delay = self.aug_config.anomaly_delay
+        self.loc = self.aug_config.loc
+        self.scale = self.aug_config.scale
+        self.seq_len = self.aug_config.seq_len
 
-        labels = np.array(data['labels'])
         self.len = len(labels)
-        self.data = np.array(data.drop('labels', axis=1))
-        self.label = self._encode_labels(labels)
+        self.labels = labels # [num_samples,]
+        self.data = data # [num_samples, num_features, seq_len]
 
-    def _encode_labels(self, seq_y):
-        self.label_encoder.fit(list(set(seq_y)))
-        seq_y = self.label_encoder.transform(seq_y)
-        return torch.from_numpy(seq_y)
+        self.delays: Optional[list[float]] = None
+        self.relative_send_times: Optional[list[float]] = None
 
-    def random_delay_distribution(self, seq_length: int) -> list:
-        delays = []
+    def random_delay_distribution(self, seq_length: int) -> tuple[list[float], list[float]]:
+        delays: list[float] = []
 
         while len(delays) < seq_length:
             t = random.random() # Uniform distribution: [0.0, 1.0)
@@ -96,25 +116,12 @@ class TCPSequenceSimulator:
                 #       |   \____________
                 #       +----------------> x
                 #
-                t = expon.rvs(loc = self.loc, scale = self.scale)
-                t = np.atleast_1d(t)
-                delays.extend(t)
+                delays.append(np.random.exponential(scale=self.scale) + self.loc)
+        relative_send_times = np.cumsum(delays).tolist()
 
-        return delays
+        return delays, relative_send_times
 
-    def _fit_seq_length(self, seq, tl):
-        label = seq[-1]
-        data = seq[:-1]
-        if len(data) < tl:
-            while len(data) < tl:
-                data.append(0)
-        else:
-            data = seq[:tl]
-
-        data.append(label)
-        return data
-
-    def simulate_nagle(self, in_seq: list, mss: int) -> list:
+    def simulate_nagle(self, in_seq: list[int], mss: int) -> list[int]:
         """
         Simulate Nagle's algorithm by aggregating small packets into larger ones based on RTT and MSS.
 
@@ -122,27 +129,27 @@ class TCPSequenceSimulator:
         :param mss: e.g., 1460
         :return: e.g., [1300, 1400, 500, 1460, 1460, 1200] or [300, 1900, 1460, 1460, 1200], etc.
         """
-        res: list[Any] = []
+        res: list[int] = []
+        # NOTE: `in_seq.pop(0)` will remove the first element from the original list
+        # Directly add the first two packages to the result,
+        # Nagle usually allows the first package to be sent directly without waiting for merging
         res.append(in_seq.pop(0))
         res.append(in_seq.pop(0))
-        delays = self.random_delay_distribution(len(in_seq))
 
+        self.delays, self.relative_send_times = self.random_delay_distribution(len(in_seq))
+        assert self.delays is not None
         while len(in_seq) > 0:
             cur_rtt = random.random() * self.max_rtt
             buf = 0
-
             while len(in_seq) > 0 and cur_rtt > 0:
-                delay = delays.pop(0)
+                delay = self.delays.pop(0)
                 cur_rtt -= delay
                 buf += int(in_seq.pop(0))
-
                 while buf > mss:
                     buf -= mss
                     res.append(mss)
-
             res.append(buf)
 
-        res = self._fit_seq_length(res, 100)
         return res
 
     def simulate_packet_loss(self, in_seq: list) -> list:
@@ -188,7 +195,7 @@ class TCPSequenceSimulator:
         for pkt in in_seq:
             res.append(pkt)
 
-            # Randomly duplicate packets based on loss rate
+            # FIXME: Randomly duplicate packets based on loss rate
             # It may be repeated multiple times
             while random.random() > loss_rate:
                 res.append(pkt)
@@ -218,34 +225,51 @@ class TCPSequenceSimulator:
     def augment_tcp_sequence(self, seq: np.ndarray) -> np.ndarray:
         data = seq.tolist()
 
-        if self.enable_nagle:
-            data = self.simulate_nagle(data, self.mss)
+        # Build a list of tuples: (method_function, enabled_flag)
+        ops = [
+            (functools.partial(self.simulate_nagle, mss=self.mss), self.aug_config.simulate_nagle),
+            (self.simulate_packet_shift, self.aug_config.simulate_packet_shift),
+            (self.simulate_packet_loss, self.aug_config.simulate_packet_loss),
+            (self.simulate_packet_duplication, self.aug_config.simulate_packet_duplication),
+        ]
+        # Keep only enabled operations
+        enabled_ops = [
+            func
+            for func, enabled in ops
+            if enabled
+        ]
+        # Shuffle order
+        random.shuffle(enabled_ops)
 
-        data = self.simulate_packet_shift(data)
-        data = self.simulate_packet_loss(data)
-        data = self.simulate_packet_duplication(data)
+        # Apply in random order
+        for func in enabled_ops:
+            data = func(data)
 
         return np.array(data)
 
 
-    def _prepare_sequence(self, seq_x):
+    def _fit_seq(self, seq_x: np.ndarray) -> torch.Tensor:
         # If it's too long, cut it out first
         seq_x = seq_x[:self.seq_len]
         # Pad to the specified length
-        seq_x = np.pad(seq_x, (0, max(0, self.seq_len - len(seq_x))), 'constant')
-        # Convert to patches
-        seq_x = seq_x.reshape(-1, self.patch_size, self.patch_size)
+        seq_x = np.pad(
+            seq_x,
+            pad_width=(0, max(0, self.seq_len - len(seq_x))),
+            mode='constant',
+        )
         return torch.from_numpy(seq_x).float()
 
-    def __getitem__(self, index: int) -> Tuple[Any, Any]:
+    def __getitem__(self, index: int) -> tuple[
+        tuple[torch.Tensor, torch.Tensor],
+        torch.Tensor,
+    ]:
         seq = self.data[index]
         seq_auged = self.augment_tcp_sequence(seq)
 
-        seq = self._prepare_sequence(seq)
-        seq_auged = self._prepare_sequence(seq_auged)
-        ground_truth = self.label[index]
-
+        seq = self._fit_seq(seq)
+        seq_auged = self._fit_seq(seq_auged)
+        ground_truth = torch.tensor(self.labels[index], dtype=torch.long)
         return (seq, seq_auged), ground_truth
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.data)
