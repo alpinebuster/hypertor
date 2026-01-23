@@ -38,6 +38,7 @@
         "tensorboard",
         "torchrun",
         "torrc",
+        "usec",
         "virtualenvs"
     ]
 }

@@ -9,12 +9,14 @@ from hypertor.aug.tcp.tor import TCPSequenceSimulator, TCPAugmentationConfig
 @pytest.fixture
 def dummy_data():
     """Create dummy TCP sequence data and labels"""
-    features = np.array([
-        [70, 60, 50, 40, 30, 20, 10],
-        [200, 190, 180, 170, 160, 150, 140],
-        [300, 350, 150, 400, 300, 200, 100]
+    base_features = np.array([
+        [1, -1, 1, 1, 1, 1, -1], # pkt_dir_seq
+        [200, 190, 180, 170, 160, 150, 140], # pkt_len_seq
+        [300, 350, 150, 400, 300, 200, 100],
     ])
-    labels = np.array([0, 1, 2])
+    # features = np.expand_dims(base_features, axis=0)
+    features = np.stack([base_features, base_features+1000], axis=0)
+    labels = np.array([0, 1])
     return features, labels
 
 
@@ -26,7 +28,7 @@ def dummy_data():
         "simulate_packet_duplication": True,
         "max_rate": 0.5,
         "max_rtt": 0.01,
-        "seq_len": 10,
+        "target_seq_len": 10,
     },
     {
         "simulate_nagle": False,
@@ -35,7 +37,7 @@ def dummy_data():
         "simulate_packet_duplication": False,
         "max_rate": 0.5,
         "max_rtt": 0.01,
-        "seq_len": 10,
+        "target_seq_len": 10,
     },
     {
         "simulate_nagle": False,
@@ -44,7 +46,7 @@ def dummy_data():
         "simulate_packet_duplication": False,
         "max_rate": 0.5,
         "max_rtt": 0.01,
-        "seq_len": 15,
+        "target_seq_len": 15,
     },
     {
         "simulate_nagle": True,
@@ -53,7 +55,7 @@ def dummy_data():
         "simulate_packet_duplication": False,
         "max_rate": 0.3,
         "max_rtt": 0.02,
-        "seq_len": 20,
+        "target_seq_len": 20,
     },
     {
         "simulate_nagle": True,
@@ -62,7 +64,7 @@ def dummy_data():
         "simulate_packet_duplication": True,
         "max_rate": 0.3,
         "max_rtt": 0.02,
-        "seq_len": 20,
+        "target_seq_len": 20,
     },
 ])
 def simulator(dummy_data: tuple, request):
@@ -76,14 +78,18 @@ def simulator(dummy_data: tuple, request):
 
 
 def test_simulate(simulator: TCPSequenceSimulator):
+    # simulator.data -> [num_samples, num_features, seq_len]
     res = simulator.augment_tcp_sequence(simulator.data[0])
 
     # This first packet in sequence is always keeped 
-    assert res[0] == simulator.data[0][0]
+    assert res[0][0] == simulator.data[0][0][0]
 
 
 def test_getitem_and_fit_seq(simulator: TCPSequenceSimulator):
     """Test __getitem__ and _fit_seq"""
+    # input -> [samples, num_features, seq_len]
+    # seq   -> [num_features, seq_len]
+    # label -> [samples,]
     (seq_orig, seq_aug), label = simulator[0]
 
     print(f"seq_orig: {seq_orig}")
@@ -96,8 +102,8 @@ def test_getitem_and_fit_seq(simulator: TCPSequenceSimulator):
     assert isinstance(label, torch.Tensor)
 
     # Sequence length
-    assert seq_orig.shape[0] == simulator.seq_len
-    assert seq_aug.shape[0] == simulator.seq_len
+    assert seq_orig.shape[1] == simulator.target_seq_len
+    assert seq_aug.shape[1] == simulator.target_seq_len
 
     # Values are float tensors
     assert seq_orig.dtype == torch.float32
