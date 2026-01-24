@@ -11,8 +11,9 @@ def dummy_data():
     """Create dummy TCP sequence data and labels"""
     base_features = np.array([
         [1, -1, 1, 1, 1, 1, -1], # pkt_dir_seq
-        [200, 190, 180, 170, 160, 150, 140], # pkt_len_seq
-        [300, 350, 150, 400, 300, 200, 100],
+        [1200, 1190, 1180, 1170, 1160, 1150, 1140], # pkt_len_seq
+        [0, 115135, 115158, 115177, 115359, 233595, 233616], # pkt_usec_seq
+        # ...
     ])
     # features = np.expand_dims(base_features, axis=0)
     features = np.stack([base_features, base_features+1000], axis=0)

@@ -3,7 +3,7 @@ import dataclasses
 import os
 import functools
 
-from typing import Any, Optional
+from typing import Optional
 
 from absl import app, flags, logging
 import pandas as pd
@@ -22,7 +22,9 @@ class TCPAugmentationConfig:
     simulate_packet_loss: bool = False
     simulate_packet_duplication: bool = False
 
-    max_rate: float = 0.704
+    # random.random() > random.random()*max_rate
+    # X ~ Uniform(a, b) -> E[X]=(a+b)/2 -> E[X]=E[X]/2
+    max_rate: float = 0.404
     max_rtt: float = 0.011 # seconds
     mss: int = 1460
     seed: Optional[int] = None
@@ -92,7 +94,7 @@ class TCPSequenceSimulator:
         delays: list[float] = []
 
         while len(delays) < seq_length:
-            t = random.random() # Uniform distribution: [0.0, 1.0)
+            t = random.random() # Uniform distribution: [0.0, 1.0) in seconds
 
             if t < 0.1:
                 delays.append(self.anomaly_delay)
@@ -138,8 +140,11 @@ class TCPSequenceSimulator:
         res.append(seq_t.pop(0))
         res.append(seq_t.pop(0))
 
-        self.delays, self.relative_send_times = self.random_delay_distribution(len(seq_t))
+        # In seconds
+        if self.delays is None or self.relative_send_times is None:
+            self.delays, self.relative_send_times = self.random_delay_distribution(len(seq_t))
         assert self.delays is not None
+        time_offset_usec = 0
         while len(seq_t) > 0:
             cur_rtt = random.random() * self.max_rtt
             buf = 0
@@ -152,6 +157,8 @@ class TCPSequenceSimulator:
                 pkt = seq_t.pop(0)  # full feature vector
                 # features: [pkt_dir_seq,pkt_len_seq,pkt_usec_seq,tcp_window_seq,fin_seq,syn_seq,rst_seq,psh_seq,ack_seq,urg_seq,cwr_seq,ece_seq,ttl_seq,ip_df_seq,ip_mf_seq]
                 pkt_len = pkt[1]
+                pkt_time_us = int(pkt[2])
+
                 buf += int(pkt_len)
                 buf_pkt = pkt.copy()
 
@@ -162,10 +169,20 @@ class TCPSequenceSimulator:
                     # Send MSS-sized packet
                     to_send = pkt.copy() # copy packet's features
                     to_send[1] = mss  # set length to MSS
+
+                    # Simulate the sending delay of duplication
+                    to_send[2] = pkt_time_us + time_offset_usec
+                    dup_delay, _ = self.random_delay_distribution(seq_length=1)
+                    dup_delay_usec = int(dup_delay[0] * 1_000_000)
+                    time_offset_usec += dup_delay_usec
+
                     res.append(to_send)
 
-            buf_pkt[1] = buf
-            res.append(buf_pkt)
+                buf_pkt[2] = pkt_time_us + time_offset_usec
+
+            if buf_pkt is not None and len(buf_pkt) >= 3:
+                buf_pkt[1] = buf
+                res.append(buf_pkt)
 
         return np.array(res).T
 
@@ -185,7 +202,7 @@ class TCPSequenceSimulator:
 
         loss_rate = random.random() * self.max_rate
         for pkt in seq_t:
-            if random.random() < loss_rate:
+            if random.random() > loss_rate:
                 # Packet survives
                 res.append(pkt)
 
@@ -206,15 +223,30 @@ class TCPSequenceSimulator:
 
         max_dup = 3
         duplication_rate = random.random() * self.max_rate
+        time_offset_usec = 0
         for pkt in seq_t:
-            res.append(pkt)
+            pkt_time_us = int(pkt[2])
+
+            base_pkt = pkt.copy()
+            # The offset brought by possible previous duplication should be added
+            base_pkt[2] = pkt_time_us + time_offset_usec
+            res.append(base_pkt)
 
             # Randomly duplicate packets based on loss rate
             # It may be repeated multiple times
             dup_count = 0
             cur_rate = duplication_rate
-            while dup_count < max_dup and random.random() < cur_rate:
-                res.append(pkt)
+            while dup_count < max_dup and random.random() > cur_rate:
+                # Simulate the sending delay of duplication
+                dup_delay, _ = self.random_delay_distribution(seq_length=1)
+                dup_delay_usec = int(dup_delay[0] * 1_000_000)
+
+                dup_pkt = pkt.copy()
+                time_offset_usec += dup_delay_usec
+                dup_pkt[2] = pkt_time_us + time_offset_usec
+
+                res.append(dup_pkt)
+
                 dup_count += 1
                 cur_rate *= .5
 
@@ -227,22 +259,37 @@ class TCPSequenceSimulator:
         :param in_seq: [num_features, seq_len] -> Example feature: [1, 2, 3, 4, 5]
         :return: e.g., [1, 3, 5, 2, 4], [1, 2, 4, 3, 5] or [1, 3, 2, 4, 5], etc.
         """
-        # [num_features, seq_len] -> [seq_len, num_features] for convenient column processing
-        seq_t: list[list] = in_seq.T.tolist()
+        def _generate_shifted_indices(max_rate, seq_len: int) -> list[int]:
+            indices = list(range(seq_len))
 
-        res: list[list] = []
-        # Always keep the first packet
-        res.append(seq_t.pop(0))
+            res = [indices.pop(0)]  # always keep first
+            shift_rate = random.random()*max_rate
 
-        shift_rate = random.random() * self.max_rate
-        while len(seq_t) > 0:
-            for i in range(len(seq_t)):
-                if random.random() < shift_rate:
-                    res.append(seq_t.pop(i))
-                    break
+            while indices:
+                for i in range(len(indices)):
+                    if random.random() > shift_rate:
+                        res.append(indices.pop(i))
+                        break
+            return res
 
-        # [seq_len, num_features] -> [num_features, seq_len]
-        return np.array(res).T
+        num_features, seq_len = in_seq.shape
+        # Generate shifted packet sequence indices
+        new_order = _generate_shifted_indices(self.max_rate, seq_len)
+
+        # [num_features, seq_len]
+        out = np.empty_like(in_seq)
+        # features: [pkt_dir_seq,pkt_len_seq,pkt_usec_seq,tcp_window_seq,fin_seq,syn_seq,rst_seq,psh_seq,ack_seq,urg_seq,cwr_seq,ece_seq,ttl_seq,ip_df_seq,ip_mf_seq]
+        time_idx = 2
+        # Maintain the original order for `pkt_usec_seq`
+        out[time_idx] = in_seq[time_idx]
+
+        # Reorder by new_order for other features
+        for f in range(num_features):
+            if f == time_idx:
+                continue
+            out[f] = in_seq[f, new_order]
+
+        return out
 
     def augment_tcp_sequence(self, seq: np.ndarray) -> np.ndarray:
         # seq -> [num_features, seq_len]
@@ -276,7 +323,6 @@ class TCPSequenceSimulator:
             data = func(data)
 
         return np.array(data, dtype=np.float32)
-
 
     def _fit_seq(self, seq_x: np.ndarray) -> torch.Tensor:
         # [num_features, seq_len]
