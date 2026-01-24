@@ -23,7 +23,7 @@ class TCPAugmentationConfig:
     simulate_packet_duplication: bool = False
 
     max_rate: float = 0.704
-    max_rtt: float = 0.011
+    max_rtt: float = 0.011 # seconds
     mss: int = 1460
     seed: Optional[int] = None
     anomaly_delay: float = 0.3 # 300 ms, normal RTT: 10-50 ms, peak RTT: 150-300+ ms
@@ -185,7 +185,7 @@ class TCPSequenceSimulator:
 
         loss_rate = random.random() * self.max_rate
         for pkt in seq_t:
-            if random.random() > loss_rate:
+            if random.random() < loss_rate:
                 # Packet survives
                 res.append(pkt)
 
@@ -204,14 +204,19 @@ class TCPSequenceSimulator:
         # Always keep the first packet
         res.append(seq_t.pop(0))
 
-        loss_rate = random.random() * self.max_rate
+        max_dup = 3
+        duplication_rate = random.random() * self.max_rate
         for pkt in seq_t:
             res.append(pkt)
 
-            # FIXME: Randomly duplicate packets based on loss rate
+            # Randomly duplicate packets based on loss rate
             # It may be repeated multiple times
-            while random.random() > loss_rate:
+            dup_count = 0
+            cur_rate = duplication_rate
+            while dup_count < max_dup and random.random() < cur_rate:
                 res.append(pkt)
+                dup_count += 1
+                cur_rate *= .5
 
         return np.array(res).T
 
@@ -229,10 +234,10 @@ class TCPSequenceSimulator:
         # Always keep the first packet
         res.append(seq_t.pop(0))
 
-        loss_rate = random.random() * self.max_rate
+        shift_rate = random.random() * self.max_rate
         while len(seq_t) > 0:
             for i in range(len(seq_t)):
-                if random.random() > loss_rate:
+                if random.random() < shift_rate:
                     res.append(seq_t.pop(i))
                     break
 
