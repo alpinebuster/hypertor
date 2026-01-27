@@ -1,1 +1,1 @@
-from .tor import TCPSequenceSimulator
+from .tor import TCPSequenceSimulator, TCPAugmentationConfig, make_tcp_augmentation_config

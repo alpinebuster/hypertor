@@ -12,7 +12,7 @@ from absl import app, flags, logging
 import numpy as np
 import pandas as pd
 
-from hypertor.aug.tcp import TCPSequenceSimulator
+import hypertor.aug.tcp as tcp_aug
 from hypertor.core import util
 from hypertor import common_flags  # pylint:disable=unused-import
 from hypertor import eval_model_flags  # pylint:disable=unused-import
@@ -164,11 +164,14 @@ def main(argv):
         os.environ["CUDA_VISIBLE_DEVICES"] = gpus
     util.print_gpu_detailed_info()
 
-    label = ""
     df = pd.read_csv('./data/newrealtime2.csv', encoding='utf-8-sig')
     logging.info(df.head())
     # X -> [samples, H, W]
     X, col_order = df_to_normalized_numpy(df)
+    labels = np.zeros(X.shape[0])
+
+    config = tcp_aug.make_tcp_augmentation_config()
+    simulator = tcp_aug.TCPSequenceSimulator(config, X, labels)
 
     logging.info(f"X.shape: {X.shape}") # (num_samples, num_features, seq_len)
     logging.info(f"Columns: {col_order}")
