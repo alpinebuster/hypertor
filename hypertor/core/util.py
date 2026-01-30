@@ -283,7 +283,7 @@ class JointTransformerIO(_TransformerIO):
         weight_sequence = torch.stack(weight_sequence, dim=0)
 
         # Concatenate weight tokens before sample tokens
-        # [num_weights+B, D_w/I_w + D_l/I_l]
+        # [num_weights+B, D_w/D_l + I_w/I_l]
         return torch.cat([weight_sequence, sequence], dim=0)
 
     def extend_label_mask(self, label_mask: torch.Tensor) -> torch.Tensor:
