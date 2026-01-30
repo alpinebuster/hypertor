@@ -75,8 +75,8 @@ class _TransformerIO(nn.Module):
         num_labels: int,
         num_weights: int,
         weight_block_size: int, # I_w
-        embedding_dim: int = 8, # D_w
-        weight_embedding_dim: Optional[int] = None, # D_l
+        embedding_dim: int = 8, # D_l
+        weight_embedding_dim: Optional[int] = None, # D_w
     ):
         super().__init__()
 
@@ -160,7 +160,7 @@ class SimpleTransformerIO(_TransformerIO):
         encoded_labels: torch.Tensor = self._encode_labels(labels)
         """
         encoded_labels: [batch_size, label_dim]
-        samples:         [batch_size, sample_dim]
+        samples:        [batch_size, sample_dim]
                             ↓
         [batch_size, label_dim + sample_dim]
         """
@@ -273,17 +273,17 @@ class JointTransformerIO(_TransformerIO):
                 sample_dim,
                 dtype=sequence.dtype,
                 device=sequence.device,
-            ) # [I_l]
+            ) # [I_w]
 
             weight_token: torch.Tensor = torch.cat([weight_emb, zero_emb], dim=-1)
             assert isinstance(weight_sequence, list)
             weight_sequence.append(weight_token)
-        # [num_weights, D_w + I_l]
+        # [num_weights, D_w + I_w]
         assert isinstance(weight_sequence, list)
         weight_sequence = torch.stack(weight_sequence, dim=0)
 
         # Concatenate weight tokens before sample tokens
-        # [num_weights + B, D_w + I_l]
+        # [num_weights+B, D_w/I_w + D_l/I_l]
         return torch.cat([weight_sequence, sequence], dim=0)
 
     def extend_label_mask(self, label_mask: torch.Tensor) -> torch.Tensor:
