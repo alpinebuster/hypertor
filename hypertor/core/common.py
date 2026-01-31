@@ -473,30 +473,6 @@ def _calculate_loss(
     state.small_summaries["loss/total_loss"] = total_loss
     return total_loss
 
-def _collect_generators(
-    model: "layerwise.LayerwiseModel"
-) -> tuple[
-    list[nn.Parameter],
-    list[nn.Parameter],
-    list[nn.Parameter],
-]:
-    conv_gens = []
-    proto_gens = []
-    last_logit_gens = []
-
-    for layer, do_gen in zip(model.layers, model.generate_weights_per_layers):
-        if not do_gen:
-            continue
-
-        if hasattr(layer, "generator"):
-            if isinstance(layer, layerwise.ConvLayer):
-                conv_gens += list(layer.generator.parameters())
-            elif isinstance(layer, layerwise.VariableProtoLayer):
-                proto_gens += list(layer.generator.parameters())
-            elif isinstance(layer, layerwise.ProtoLogitsLayer):
-                last_logit_gens += list(layer.generator.parameters())
-    return conv_gens, proto_gens, last_logit_gens
-
 def train(
     train_config: TrainConfig,
     model_config: "common_ht.LayerwiseModelConfig",
