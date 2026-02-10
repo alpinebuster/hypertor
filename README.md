@@ -1,16 +1,6 @@
 # Imbalanced Traffic Classification
 
-This a transformer-based model for few-shot learning that generates weights of
-a convolutional neural network (CNN) directly from support samples.
-Since the dependence of a small generated CNN model on a specific task is
-encoded by a high-capacity transformer model, the complexity of the large task
-space is effectively decoupled from the complexity of individual tasks.
-This method is particularly effective for small target CNN architectures where
-learning a fixed universal task-independent embedding is not optimal and better
-performance is attained when the information about the task can modulate all
-model parameters. The implementation also supports a semi-supervised regime
-utilizing unlabeled samples in the support set and further improving few-shot
-performance.
+In this study, we introduce a comprehensive framework formulated to surmount these obstacles: (1) To enhance feature representation for effectively distinguishing between traffic classes, we propose a bespoke fingerprinting mechanism that aggregates consecutive flows from a single access event into multi-flow constructs; (2) To mitigate the constraints imposed by limited training data, we introduce a TCP-sequence-driven data augmentation strategy; (3) We tackle class imbalance through a variable-prototype learning paradigm, which adaptively determines the number of prototypes per class while concurrently learning data-driven class centers. This approach yields decision boundaries characterized by enhanced class discriminability; and (4) We employ a Transformer-based layerwise hypernetwork, wherein a Transformer architecture generates the parameters for Convolutional Neural Networks (CNNs), only sharing hypernetwork weights to ensure data privacy.
 
 ## Getting started
 
@@ -50,7 +40,7 @@ Folder `scripts` contains several training scripts for `darkflow`,
 They can be executed as follows:
 
 ```shell
-./scripts/omniglot_1shot_v1.sh --data_dir=./data/omniglot --data_numpy_dir=./data/omniglot/cache --train_log_dir=./data/omniglot/logs/torch
+./scripts/darkflow_1shot.sh --data_dir=./data/darkflow --data_numpy_dir=./data/darkflow/cache --train_log_dir=./data/darkflow/logs/torch
 ```
 
 The evaluation script `evaluate_model.py` can be executed in parallel to
@@ -140,24 +130,26 @@ The model is trained end-to-end:
 ```txt
    ┌───────────────────────────┐
    │ (a) Generate a batch of   │
-   │     samples for a new     │
-   │         episode           │
-   └─────────────┬─────────────┘
-                 │
-                 ▼
-   ┌───────────────────────────┐
-   │ (b) Pass support samples  │
-   │     to Transformer →      │
-   │     Transformer generates │
-   │           CNN             │
-   └─────────────┬─────────────┘
-                 │
-                 ▼
-   ┌───────────────────────────┐
-   │ (c) Pass query samples    │
-   │     through generated CNN │
-   │     and compute loss →    │
+   │     samples for a new     │<┐
+   │         episode           │ │
+   └─────────────┬─────────────┘ │
+                 │               │
+                 ▼               │
+   ┌───────────────────────────┐ │
+   │ (b) Pass support samples  │ │
+   │     to Transformer →      │ │
+   │     Transformer generates │ │
+   │           CNN             │ │
+   └─────────────┬─────────────┘ │
+                 │               │
+                 ▼               │
+   ┌───────────────────────────┐ │
+   │ (c) Pass query samples    │ │
+   │     through generated CNN │ │ Update Prototypes
+   │     and compute loss →    │─┘
    │     Backprop to train     │
    │       Transformer         │
    └───────────────────────────┘
+                 │
+                 ▼
 ```
