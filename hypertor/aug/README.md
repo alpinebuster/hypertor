@@ -34,7 +34,7 @@ Perform a two-stage classification: first determine if the flow is Tor, then cla
 - Browsing
 - Email
 - Chat
-- Audio/Video Streaming
+- Streaming (Audio/Video)
 - FTP
 - VoIP
 - P2P
@@ -45,5 +45,5 @@ Perform a two-stage classification: first determine if the flow is Tor, then cla
 Run from `hypertor` project's root dir
 
 ```sh
-python hypertor/aug/darkflow.py 
+nohup ./scripts/darkflow_aug.sh > darkflow_aug.log 2>&1 &
 ```

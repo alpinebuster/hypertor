@@ -32,6 +32,7 @@ class TCPAugmentationConfig:
     loc: float = 6e-06 # 6 μs
     scale: float = 0.012 # 12 ms
     target_seq_len: int = 100
+    drop_seq_len: int = 3
 
 def make_tcp_augmentation_config():
     return TCPAugmentationConfig(
@@ -40,6 +41,7 @@ def make_tcp_augmentation_config():
         simulate_packet_loss=FLAGS.simulate_packet_loss,
         simulate_packet_duplication=FLAGS.simulate_packet_duplication,
         target_seq_len=FLAGS.tcp_seq_len,
+        drop_seq_len=FLAGS.drop_seq_len,
     )
 
 
@@ -85,7 +87,7 @@ class TCPSequenceSimulator:
 
         self.len = len(labels)
         self.labels = labels # [num_samples,]
-        self.data = data # [num_samples, num_features, seq_len]
+        self.data = data # [num_samples, num_features, seq_len] or [all_classes, all_samples, F, C, T]
 
         self.delays: Optional[list[float]] = None
         self.relative_send_times: Optional[list[float]] = None

@@ -82,7 +82,7 @@ def test_simulate(simulator: TCPSequenceSimulator):
     # simulator.data -> [num_samples, num_features, seq_len]
     res = simulator.augment_tcp_sequence(simulator.data[0])
 
-    # This first packet in sequence is always keeped 
+    # This first packet in sequence is always keeped
     assert res[0][0] == simulator.data[0][0][0]
 
 

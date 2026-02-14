@@ -2,7 +2,7 @@
 # 
 # The upstream and downstream behavior feature group,
 # packet length distribution feature group,
-# and extensible general traffic feature group.
+# and extensible general traffic feature group (IAT, IPD, etc.).
 #
 
 import os
@@ -17,6 +17,7 @@ from hypertor.core import util
 from hypertor import common_flags  # pylint:disable=unused-import
 from hypertor import eval_model_flags  # pylint:disable=unused-import
 from hypertor import variable_proto_flags  # pylint:disable=unused-import
+from hypertor.aug import aug_flags  # pylint:disable=unused-import
 
 FLAGS = flags.FLAGS
 
@@ -37,6 +38,7 @@ def get_inter_diff_by_stream(arr: list[float], coefs: float = 1.0) -> list[float
     result[nonzero_indices[1:]] = coefs * diffs
 
     return result.tolist()
+
 
 def parse_list_column(s: str) -> list[int]:
     try:
@@ -135,8 +137,7 @@ def main(argv):
            "ip_mf_seq": Vec<u8>,
        }
         |
-        | 1) normalize / log / bucket / 
-        | 2) TCP Augmentation
+        | TCP Augmentation
         ↓ 
        2) npy [] -> {
            "SIGN": replenish_list(sign),
@@ -150,8 +151,9 @@ def main(argv):
            "INTER_PAYLOAD_DIFF_GLOBAL": replenish_list(inter_payload_diff_global),
        }
         |
+        | Normalize
         ↓ 
-       3) Convert to a 5D tensor [all_classes, all_samples, C, H, W]
+       3) Convert to a 5D tensor [all_classes, all_samples, F, C, T]
     """
     # The command-line parameters have been parsed by absl.
     if len(argv) > 1:
@@ -166,13 +168,17 @@ def main(argv):
 
     df = pd.read_csv('./data/newrealtime2.csv', encoding='utf-8-sig')
     logging.info(df.head())
-    # X -> [samples, H, W]
-    X, col_order = df_to_normalized_numpy(df)
-    labels = np.zeros(X.shape[0])
 
     config = tcp_aug.make_tcp_augmentation_config()
-    simulator = tcp_aug.TCPSequenceSimulator(config, X, labels)
 
+    # TODO
+    labels = np.zeros(df.shape[0])
+    simulator = tcp_aug.TCPSequenceSimulator(config, df, labels)
+    # df=simulator.data -> [num_samples, num_features, seq_len] or [all_classes, all_samples, F, C, T]
+    res = simulator.augment_tcp_sequence(simulator.data[0])
+
+    # X -> [samples, H, W]
+    X, col_order = df_to_normalized_numpy(df, target_len=config.target_seq_len)
     logging.info(f"X.shape: {X.shape}") # (num_samples, num_features, seq_len)
     logging.info(f"Columns: {col_order}")
 
