@@ -2886,6 +2886,21 @@ timezone = ["pytz (>=2024.2)"]
 xml = ["lxml (>=5.3.0)"]
 
 [[package]]
+name = "pandas-stubs"
+version = "3.0.0.260204"
+description = "Type annotations for pandas"
+optional = false
+python-versions = ">=3.11"
+groups = ["main"]
+files = [
+    {file = "pandas_stubs-3.0.0.260204-py3-none-any.whl", hash = "sha256:5ab9e4d55a6e2752e9720828564af40d48c4f709e6a2c69b743014a6fcb6c241"},
+    {file = "pandas_stubs-3.0.0.260204.tar.gz", hash = "sha256:bf9294b76352effcffa9cb85edf0bed1339a7ec0c30b8e1ac3d66b4228f1fbc3"},
+]
+
+[package.dependencies]
+numpy = ">=1.23.5"
+
+[[package]]
 name = "parso"
 version = "0.8.6"
 description = "A Python Parser"
@@ -5696,4 +5711,4 @@ gpu = ["onnx", "onnx-graphsurgeon", "onnxruntime", "onnxruntime-tools", "tensorr
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.15"
-content-hash = "cc6bc99106f3ba69ceb3021a5c3c4cc912696ce40caf9863eefce28f7b9427e9"
+content-hash = "0e587e0c610c7d15f9334f1253f75495460eed62cf506d465f035b942a1d45fa"

@@ -33,6 +33,7 @@ class TCPAugmentationConfig:
     scale: float = 0.012 # 12 ms
     target_seq_len: int = 100
     drop_seq_len: int = 3
+    num_flows: int = 1
 
 def make_tcp_augmentation_config():
     return TCPAugmentationConfig(
@@ -42,6 +43,7 @@ def make_tcp_augmentation_config():
         simulate_packet_duplication=FLAGS.simulate_packet_duplication,
         target_seq_len=FLAGS.tcp_seq_len,
         drop_seq_len=FLAGS.drop_seq_len,
+        num_flows=FLAGS.num_flows,
     )
 
 
@@ -63,8 +65,8 @@ class TCPSequenceSimulator:
     def __init__(
         self,
         aug_config: TCPAugmentationConfig,
-        data: np.ndarray,
-        labels: np.ndarray,
+        data: Optional[np.ndarray] = None,
+        labels: Optional[np.ndarray] = None,
     ):
         self.aug_config = aug_config
 
@@ -85,7 +87,8 @@ class TCPSequenceSimulator:
         self.scale = self.aug_config.scale
         self.target_seq_len = self.aug_config.target_seq_len
 
-        self.len = len(labels)
+        if labels is not None:
+            self.len = len(labels)
         self.labels = labels # [num_samples,]
         self.data = data # [num_samples, num_features, seq_len] or [all_classes, all_samples, F, C, T]
 
@@ -297,14 +300,14 @@ class TCPSequenceSimulator:
         # seq -> [num_features, seq_len]
         if seq is None or seq.size == 0:
             raise ValueError("Input sequence is empty or None")
-        data = seq.copy()
+        _data = seq.copy()
 
         # The priority order is: 
         #    → RTO timeout retransmission
         #    → Fast Retransmit
         #    → normal sending (subject to Nagle restrictions)
         if self.aug_config.simulate_nagle:
-            data = self.simulate_nagle(data, self.mss)
+            _data = self.simulate_nagle(_data, self.mss)
 
         # Build a list of tuples: (method_function, enabled_flag)
         ops = [
@@ -322,9 +325,9 @@ class TCPSequenceSimulator:
         random.shuffle(enabled_ops)
         # Apply in random order
         for func in enabled_ops:
-            data = func(data)
+            _data = func(_data)
 
-        return np.array(data, dtype=np.float32)
+        return np.array(_data, dtype=np.float32)
 
     def _fit_seq(self, seq_x: np.ndarray) -> torch.Tensor:
         # [num_features, seq_len]
@@ -339,19 +342,3 @@ class TCPSequenceSimulator:
             seq_x = np.pad(seq_x, pad_width=pad_width, mode='constant', constant_values=0)
 
         return torch.from_numpy(seq_x).float()
-
-    def __getitem__(self, index: int) -> tuple[
-        tuple[torch.Tensor, torch.Tensor],
-        torch.Tensor,
-    ]:
-        # seq -> [num_features, seq_len]
-        seq = self.data[index]
-        seq_auged = self.augment_tcp_sequence(seq)
-
-        seq = self._fit_seq(seq)
-        seq_auged = self._fit_seq(seq_auged)
-        ground_truth = torch.tensor(self.labels[index], dtype=torch.long)
-        return (seq, seq_auged), ground_truth
-
-    def __len__(self) -> int:
-        return len(self.data)

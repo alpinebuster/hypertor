@@ -80,32 +80,8 @@ def simulator(dummy_data: tuple, request):
 
 def test_simulate(simulator: TCPSequenceSimulator):
     # simulator.data -> [num_samples, num_features, seq_len]
+    assert simulator.data is not None
     res = simulator.augment_tcp_sequence(simulator.data[0])
 
     # This first packet in sequence is always keeped
     assert res[0][0] == simulator.data[0][0][0]
-
-
-def test_getitem_and_fit_seq(simulator: TCPSequenceSimulator):
-    """Test __getitem__ and _fit_seq"""
-    # input -> [samples, num_features, seq_len]
-    # seq   -> [num_features, seq_len]
-    # label -> [samples,]
-    (seq_orig, seq_aug), label = simulator[0]
-
-    print(f"seq_orig: {seq_orig}")
-    print(f"seq_aug: {seq_aug}")
-    print(f"simulator.aug_config: {simulator.aug_config}")
-
-    # Types
-    assert isinstance(seq_orig, torch.Tensor)
-    assert isinstance(seq_aug, torch.Tensor)
-    assert isinstance(label, torch.Tensor)
-
-    # Sequence length
-    assert seq_orig.shape[1] == simulator.target_seq_len
-    assert seq_aug.shape[1] == simulator.target_seq_len
-
-    # Values are float tensors
-    assert seq_orig.dtype == torch.float32
-    assert seq_aug.dtype == torch.float32

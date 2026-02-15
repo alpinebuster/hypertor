@@ -24,6 +24,12 @@ flags.DEFINE_bool(
     False,
     "Enable simulation of packet duplication to test handling of duplicated packets."
 )
+
+flags.DEFINE_integer(
+    "num_flows",
+    1,
+    "Number of flows.",
+)
 flags.DEFINE_integer(
     "tcp_seq_len",
     30,

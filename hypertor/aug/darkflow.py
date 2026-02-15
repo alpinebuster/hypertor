@@ -10,14 +10,14 @@ import ast
 
 from absl import app, flags, logging
 import numpy as np
-import pandas as pd
+import pandas as pd  # type:ignore
 
 import hypertor.aug.tcp as tcp_aug
 from hypertor.core import util
 from hypertor import common_flags  # pylint:disable=unused-import
 from hypertor import eval_model_flags  # pylint:disable=unused-import
 from hypertor import variable_proto_flags  # pylint:disable=unused-import
-from hypertor.aug import aug_flags  # pylint:disable=unused-import
+from hypertor import aug_flags  # pylint:disable=unused-import
 
 FLAGS = flags.FLAGS
 
