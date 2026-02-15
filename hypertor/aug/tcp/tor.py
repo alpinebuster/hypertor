@@ -160,9 +160,9 @@ class TCPSequenceSimulator:
         res.append(seq_t.pop(0))
 
         # In seconds
-        if self.delays is None or self.relative_send_times is None:
-            self.delays, self.relative_send_times = self.random_delay_distribution(len(seq_t))
+        self.delays, self.relative_send_times = self.random_delay_distribution(len(seq_t))
         assert self.delays is not None
+        delay_iter = iter(self.delays) 
         time_offset_usec = 0
         while len(seq_t) > 0:
             cur_rtt = random.random() * self.max_rtt
@@ -170,7 +170,9 @@ class TCPSequenceSimulator:
             buf_pkt: list = []
 
             while len(seq_t) > 0 and cur_rtt > 0:
-                delay = self.delays.pop(0)
+                # delay = self.delays.pop(0)
+                delay = next(delay_iter)
+
                 cur_rtt -= delay
 
                 pkt = seq_t.pop(0)  # full feature vector
@@ -342,9 +344,9 @@ class TCPSequenceSimulator:
         for func in enabled_ops:
             _data = func(_data)
 
-        return np.array(_data, dtype=np.float32)
+        return self._fit_seq(np.array(_data, dtype=np.float32))
 
-    def fit_seq(self, seq_x: np.ndarray) -> torch.Tensor:
+    def _fit_seq(self, seq_x: np.ndarray) -> np.ndarray:
         # [num_features, seq_len]
         _, current_seq_len = seq_x.shape
 
@@ -356,4 +358,4 @@ class TCPSequenceSimulator:
             pad_width = ((0, 0), (0, self.target_seq_len-current_seq_len))
             seq_x = np.pad(seq_x, pad_width=pad_width, mode='constant', constant_values=0)
 
-        return torch.from_numpy(seq_x).float()
+        return seq_x

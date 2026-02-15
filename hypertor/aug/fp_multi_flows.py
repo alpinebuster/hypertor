@@ -259,6 +259,7 @@ def build_dataset(
         dataset_max[cls_idx, :d.shape[0]] = d
         class_counts[classes[cls_idx]] = d.shape[0]
 
+    # import pdb;pdb.set_trace()
     return dataset, (dataset_max, class_counts)
 
 def csv2numpy(
@@ -275,6 +276,9 @@ def csv2numpy(
         raise RuntimeError("Wrong dataset")
 
     base_file = os.path.join(base_path, "darkflow_raw_ja4cleaned.csv")
+    # The cicdarknet dataset did NOT support multi flows
+    if dataset.lower() == "cicdarknet":
+        base_file = os.path.join(base_path, "darkflow_raw.csv")
     fpbase_file = os.path.join(lpbase_path, "darkflow_raw.csv")
 
     df = pd.read_csv(base_file, encoding="utf-8-sig")
@@ -448,13 +452,13 @@ def _exp_cicdarknet(aug_config: "tcp_aug.TCPAugmentationConfig"):
         cic_dataset_5d,
     )
     """
-    class browsing(id 0): 94 samples
-    class chat(id 1): 10 samples
-    class email(id 2): 30 samples
-    class ftp(id 3): 816 samples
-    class p2p(id 4): 388 samples
-    class streaming(id 5): 320 samples
-    class voip(id 6): 139 samples
+    class browsing(id 0): 62 samples
+    class chat(id 1): 16 samples
+    class email(id 2): 10 samples
+    class ftp(id 3): 13 samples
+    class p2p(id 4): 48 samples
+    class streaming(id 5): 227 samples
+    class voip(id 6): 44 samples
     """
     file_name_max = (
         f"cic_flows{aug_config.num_flows}"
@@ -480,7 +484,7 @@ def run_cic_exp(num_flows, sim_name, seq_len, seed=2026):
         seed=seed,
     )
 
-    print(f"Running cicdarknet exp: flows={num_flows}, sim={sim_name}, len={seq_len}")
+    print(f"\nRunning cicdarknet exp: flows={num_flows}, sim={sim_name}, len={seq_len}")
     _exp_cicdarknet(cic_aug_config)
 
 def exp_cic_flows():
