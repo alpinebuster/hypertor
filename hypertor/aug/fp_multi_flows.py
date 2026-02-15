@@ -1,8 +1,8 @@
 # %%
 import os
-import ast
 import glob
 import ipaddress
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -24,7 +24,13 @@ from hypertor.aug import darkflow
 #    ...
 
 # %%
-hypertor_data_path = "../../data/"
+current_file = Path(__file__).resolve()
+current_dir = current_file.parent
+hypertor_data_path = (current_dir / "../../data").resolve()
+print("current_file:", current_file)
+print("current_dir:", current_dir)
+print("hypertor_data_path:", hypertor_data_path)
+
 
 def normalize_flow_key(src_ip, src_port, dst_ip, dst_port):
     ip1 = int(ipaddress.ip_address(src_ip))
@@ -240,12 +246,18 @@ def build_dataset(
         for class_samples in all_data
     ]
     min_samples = min(d.shape[0] for d in all_data_np)
+    max_samples = max(d.shape[0] for d in all_data_np)
     dataset = np.zeros((len(classes), min_samples, F, C, T), dtype=np.float32)
+    dataset_max = np.zeros((len(classes), max_samples, F, C, T), dtype=np.float32)
 
+    class_counts = {}
     for cls_idx, d in enumerate(all_data_np):
-        dataset[cls_idx, :d.shape[0]] = d
+        print(f"class {classes[cls_idx]}(id {cls_idx}): {d.shape[0]} samples")
+        dataset[cls_idx] = d[:min_samples]
+        dataset_max[cls_idx, :d.shape[0]] = d
+        class_counts[classes[cls_idx]] = d.shape[0]
 
-    return dataset
+    return dataset, (dataset_max, class_counts)
 
 def csv2numpy(
     aug_config: "tcp_aug.TCPAugmentationConfig",
@@ -296,10 +308,10 @@ def csv2numpy(
     all_cols = cols_small + cols_numeric + cols_large
 
     # [all_classes, all_samples, F, C, T]
-    dataset_5d = build_dataset(df, fp_df, all_cols, aug_config)
+    dataset_5d, (dataset_max_5d, class_counts) = build_dataset(df, fp_df, all_cols, aug_config)
     print(dataset_5d.shape)
-
-
+    print(dataset_max_5d.shape)
+    return dataset_5d, (dataset_max_5d, class_counts)
 
 
 # %%
@@ -313,21 +325,32 @@ tcub_aug_config = tcp_aug.TCPAugmentationConfig(
     num_flows=3,
 )
 # csv -> pd -> numpy[all_classes, all_samples, F, C, T]
-cic_data = csv2numpy(tcub_aug_config, "tcub")
+tcub_dataset_5d, (tcub_dataset_max_5d, class_counts) = csv2numpy(tcub_aug_config, "tcub")
+
+tcub_cache_path = os.path.join(hypertor_data_path, "tcub", "cache")
+if not os.path.exists(tcub_cache_path):
+    os.makedirs(tcub_cache_path, exist_ok=True)
+
+np.save(
+    os.path.join(tcub_cache_path, "tcub_5d.npy"),
+    tcub_dataset_5d,
+)
+"""
+class browsing(id 0): 94 samples
+class chat(id 1): 10 samples
+class email(id 2): 30 samples
+class ftp(id 3): 816 samples
+class p2p(id 4): 388 samples
+class streaming(id 5): 320 samples
+class voip(id 6): 139 samples
+"""
+np.save(
+    os.path.join(tcub_cache_path, "tcub_max_5d.npy"),
+    tcub_dataset_max_5d,
+)
 
 
-
-
-# cicdata_cache_path = os.path.join(hypertor_data_path, "cicdarknet", "cache")
-# if not os.path.exists(cicdata_cache_path):
-#     os.makedirs(cicdata_cache_path, exist_ok=True)
-# np.save(
-#     os.path.join(cicdata_cache_path, "cicdarknet_5d.npy"),
-#     cicdata_5d,
-# )
-
-
-
+# %%
 cic_aug_config = tcp_aug.TCPAugmentationConfig(
     simulate_nagle=False,
     simulate_packet_shift=False,
