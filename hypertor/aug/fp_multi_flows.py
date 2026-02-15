@@ -65,10 +65,7 @@ def _find_related_flows(
     fp_df,
     row,
 ):
-    r_l1 = int(row.ja4l_1) if not pd.isna(row.ja4l_1) else None
-    r_l2 = int(row.ja4l_2) if not pd.isna(row.ja4l_2) else None
-
-    base_df = pd.DataFrame([row])
+    base_df = pd.DataFrame([row._asdict()])
     def _attach_and_trim(candidate_df):
         candidate_df = candidate_df[
             candidate_df["norm_flow_key"] != row.norm_flow_key
@@ -81,12 +78,16 @@ def _find_related_flows(
     # import pdb
     # pdb.set_trace()
     # print(f"ja4: {row.ja4}, ja4t: {row.ja4t}, ja4l: {row.ja4l}")
-    # print(f"\nja4: {fp_df[fp_df["ja4"] == row.ja4].shape}")
     # print(f"\nja4t: {fp_df[fp_df["ja4t"] == row.ja4t].shape}")
-    # print(f"\nja4l: {fp_df[fp_df["ja4l"] == row.ja4l].shape}")
+    # print(f"\nja4: {fp_df[fp_df["ja4"] == row.ja4].shape}")
     # print(f"\nja4_1: {fp_df[fp_df["ja4_1"] == row.ja4_1].shape}")
     # print(f"\nja4_3: {fp_df[fp_df["ja4_3"] == row.ja4_3].shape}")
-    # print(f"\nja4l_2: {fp_df[fp_df["ja4l_2"] == r_l2].shape}")
+    # print(f"\nja4l: {fp_df[fp_df["ja4l"] == row.ja4l].shape}")
+    # print(f"\nja4l_1: {fp_df[fp_df["ja4l_1"] == row.ja4l_1].shape}")
+    # print(f"\nja4l_2: {fp_df[fp_df["ja4l_2"] == row.ja4l_2].shape}")
+
+    # print(f"\nja4l_1: {fp_df[fp_df["ja4l_1"] == row.ja4l_1]["ja4l"]}")
+    # print(f"\nja4l_2: {fp_df[fp_df["ja4l_2"] == row.ja4l_2]["ja4l"]}")
 
     # -------- Level 1 --------
     level1 = fp_df[
@@ -103,15 +104,17 @@ def _find_related_flows(
         (fp_df["ja4t"] == row.ja4t) &
         (fp_df["ja4_1"] == row.ja4_1) &
         (fp_df["ja4_3"] == row.ja4_3) &
-        (fp_df["ja4l_2"] == r_l2)
+        (fp_df["ja4l_2"] == row.ja4l_2)
     ].copy()
     # print(f"level2: {level2.shape}")
 
     if len(level2) > 0:
-        if r_l1 is None:
+        if pd.isna(row.ja4l_1):
             level2["ja4l_1_diff"] = 1e9
         else:
-            level2["ja4l_1_diff"] = (level2["ja4l_1"].astype("float") - float(r_l1)).abs().fillna(1e9)
+            level2["ja4l_1_diff"] = (
+                pd.to_numeric(level2["ja4l_1"], errors="coerce") - row.ja4l_1
+            ).abs().fillna(1e9)
         level2 = level2.sort_values("ja4l_1_diff")
 
     if len(level2) >= aug_config.num_flows:
@@ -120,20 +123,23 @@ def _find_related_flows(
     # -------- Level 3 --------
     level3 = fp_df[
         (fp_df["ja4t"] == row.ja4t) &
-        (fp_df["ja4_1"] == row.ja4_1)
+        (fp_df["ja4_1"] == row.ja4_1) &
+        (fp_df["ja4_3"] == row.ja4_3)
     ].copy()
     # print(f"level3: {level3.shape}")
 
     if len(level3) > 0:
-        if r_l2 is None:
+        if pd.isna(row.ja4l_2):
             level3["ja4l_2_match"] = False
         else:
-            level3["ja4l_2_match"] = level3["ja4l_2"] == r_l2
+            level3["ja4l_2_match"] = level3["ja4l_2"] == row.ja4l_2
 
-        if r_l1 is None:
+        if pd.isna(row.ja4l_1):
             level3["ja4l_1_diff"] = 1e9
         else:
-            level3["ja4l_1_diff"] = (level3["ja4l_1"].astype("float") - float(r_l1)).abs().fillna(1e9)
+            level3["ja4l_1_diff"] = (
+                pd.to_numeric(level3["ja4l_1"], errors="coerce") - row.ja4l_1
+            ).abs().fillna(1e9)
 
         level3 = level3.sort_values(
             by=["ja4l_2_match", "ja4l_1_diff"],
@@ -142,15 +148,34 @@ def _find_related_flows(
 
     if len(level3) >= aug_config.num_flows:
         return _attach_and_trim(level3)
-
+    
     # -------- Level 4 --------
-    combined = pd.concat([base_df, level3])
+    level4 = fp_df[
+        (fp_df["ja4t"] == row.ja4t) &
+        ((fp_df["ja4_1"] == row.ja4_1) | (fp_df["ja4_3"] == row.ja4_3))
+    ].copy()
+    # print(f"level4: {level4.shape}")
+
+    if len(level4) > 0:
+        if pd.isna(row.ja4l_1):
+            level4["ja4l_1_diff"] = 1e9
+        else:
+            level4["ja4l_1_diff"] = (
+                pd.to_numeric(level4["ja4l_1"], errors="coerce") - row.ja4l_1
+            ).abs().fillna(1e9)
+        level4 = level4.sort_values("ja4l_1_diff")
+
+    if len(level4) >= aug_config.num_flows:
+        return _attach_and_trim(level4)
+
+    # -------- Level 5 --------
+    combined = pd.concat([base_df, level4])
     combined = combined.drop_duplicates()
 
     # Padding
     pad_count = aug_config.num_flows - len(combined)
     if pad_count > 0:
-        pad_df = pd.DataFrame([row]*pad_count)
+        pad_df = pd.DataFrame([row._asdict()]*pad_count)
         combined = pd.concat([combined, pad_df])
     return combined.head(aug_config.num_flows).reset_index(drop=True)
 
@@ -164,7 +189,7 @@ def build_flows(
         related_df = _find_related_flows(aug_config, fp_df, row)
     else:
         related_df = pd.DataFrame([row])  # To DataFrame
-    print(f"related_df: {related_df}")
+    # print(f"related_df: {related_df}")
 
     X = _build(
         related_df,
@@ -195,7 +220,8 @@ def build_dataset(
 
     all_data: list[list] = [[] for _ in classes]
 
-    for row in df.itertuples(index=False):
+    for i, row in enumerate(df.itertuples(index=False), 1):
+        print(f"[{i}/{len(df)}] label={row.label}, norm_flow_key={row.flow_key}")
         label = row.label
         cls_idx = class_to_idx[label]
 
