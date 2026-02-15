@@ -217,33 +217,33 @@ def build_dataset(
 ):
     classes: list = sorted(df.label.unique())
     class_to_idx = {c: i for i, c in enumerate(classes)}
+    print(f"class_to_idx: {class_to_idx}")
 
+    # [all_classes, samples_per_class, F, C, T]
     all_data: list[list] = [[] for _ in classes]
-
     for i, row in enumerate(df.itertuples(index=False), 1):
-        print(f"[{i}/{len(df)}] label={row.label}, norm_flow_key={row.flow_key}")
+        print(f"[{i}/{len(df)}] label={row.label}, flow_key={row.flow_key}")
         label = row.label
         cls_idx = class_to_idx[label]
 
         # X shape = [F, C, T]
         X = build_flows(row, fp_df, all_cols, aug_config)
+        # print(f"X: {X.shape}")
         all_data[cls_idx].append(X)
-
-    # To numpy
-    max_samples = max(len(v) for v in all_data)
 
     F = aug_config.num_flows
     C = len(all_cols)
     T = aug_config.target_seq_len
 
-    dataset = np.zeros(
-        (len(classes), max_samples, F, C, T),
-        dtype=np.float32
-    )
+    all_data_np = [
+        np.stack(class_samples, axis=0)  # shape = [num_samples, F, C, T]
+        for class_samples in all_data
+    ]
+    min_samples = min(d.shape[0] for d in all_data_np)
+    dataset = np.zeros((len(classes), min_samples, F, C, T), dtype=np.float32)
 
-    for cls_idx, samples in enumerate(all_data):
-        for i, sample in enumerate(samples):
-            dataset[cls_idx, i] = sample
+    for cls_idx, d in enumerate(all_data_np):
+        dataset[cls_idx, :d.shape[0]] = d
 
     return dataset
 
