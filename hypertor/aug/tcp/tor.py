@@ -71,7 +71,21 @@ class TCPSequenceSimulator:
         self.aug_config = aug_config
 
         if self.aug_config.seed is not None:
-            random.seed(self.aug_config.seed)
+            seed = self.aug_config.seed
+
+            # Python random
+            random.seed(seed)
+            # NumPy random
+            np.random.seed(seed)
+            # Torch CPU
+            torch.manual_seed(seed)
+
+            # Torch CUDA
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed(seed)
+                torch.cuda.manual_seed_all(seed)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
 
         # TCP: Round Trip Time
         self.max_rtt = self.aug_config.max_rtt
@@ -297,10 +311,11 @@ class TCPSequenceSimulator:
         return out
 
     def augment_tcp_sequence(self, seq: np.ndarray) -> np.ndarray:
-        # seq -> [num_features, seq_len]
+        # seq -> [num_features, seq_len] or [C, T]
         if seq is None or seq.size == 0:
             raise ValueError("Input sequence is empty or None")
         _data = seq.copy()
+        # import pdb;pdb.set_trace()
 
         # The priority order is: 
         #    → RTO timeout retransmission
@@ -329,7 +344,7 @@ class TCPSequenceSimulator:
 
         return np.array(_data, dtype=np.float32)
 
-    def _fit_seq(self, seq_x: np.ndarray) -> torch.Tensor:
+    def fit_seq(self, seq_x: np.ndarray) -> torch.Tensor:
         # [num_features, seq_len]
         _, current_seq_len = seq_x.shape
 

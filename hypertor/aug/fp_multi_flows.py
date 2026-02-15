@@ -2,6 +2,7 @@
 import os
 import glob
 import ipaddress
+import itertools
 from pathlib import Path
 
 import numpy as np
@@ -10,18 +11,6 @@ import pandas as pd
 import hypertor.aug.tcp as tcp_aug
 from hypertor.core import util
 from hypertor.aug import darkflow
-
-# %% [markdown]
-# 1) Single Flow
-#    * 30 -> raw, aug(nagle, shift, loss, all)
-#    * 60 -> raw, aug(nagle, shift, loss, all)
-#    * 90 -> raw, aug(nagle, shift, loss, all)
-# 2) 3 Flow
-#    ...
-# 3) 6 Flow
-#    ...
-# 4) 9 Flow
-#    ...
 
 # %%
 current_file = Path(__file__).resolve()
@@ -46,11 +35,16 @@ def normalize_flow_key(src_ip, src_port, dst_ip, dst_port):
 
 
 # %%
-def _build(related_df, all_cols, target_len):
+def _build(
+    simulator: "tcp_aug.TCPSequenceSimulator",
+    related_df,
+    all_cols,
+    target_len,
+):
     C = len(all_cols)
-    num_samples = len(related_df)
+    F = len(related_df)
 
-    X = np.zeros((num_samples, C, target_len), dtype=np.float32)
+    X = np.zeros((F, C, target_len), dtype=np.float32)
 
     def _fit_list(lst, target_len):
         if len(lst) < target_len:
@@ -64,6 +58,11 @@ def _build(related_df, all_cols, target_len):
         lists = lists.apply(lambda l: _fit_list(l, target_len))
         X[:, j, :] = np.stack(lists.to_list(), axis=0)
 
+    # [num_features, seq_len]
+    for i in range(F):
+        seq = X[i] # shape = [C, T]
+        seq_aug = simulator.augment_tcp_sequence(seq)
+        X[i] = seq_aug
     return X  # [F, C, T]
 
 def _find_related_flows(
@@ -186,6 +185,7 @@ def _find_related_flows(
     return combined.head(aug_config.num_flows).reset_index(drop=True)
 
 def build_flows(
+    simulator: "tcp_aug.TCPSequenceSimulator",
     row,
     fp_df,
     all_cols,
@@ -198,9 +198,10 @@ def build_flows(
     # print(f"related_df: {related_df}")
 
     X = _build(
+        simulator,
         related_df,
         all_cols,
-        aug_config.target_seq_len
+        aug_config.target_seq_len,
     )  # [F, C, T]
 
     F = aug_config.num_flows
@@ -216,6 +217,7 @@ def build_flows(
     return X  # [F, C, T]
 
 def build_dataset(
+    simulator: "tcp_aug.TCPSequenceSimulator",
     df,
     fp_df,
     all_cols,
@@ -233,7 +235,7 @@ def build_dataset(
         cls_idx = class_to_idx[label]
 
         # X shape = [F, C, T]
-        X = build_flows(row, fp_df, all_cols, aug_config)
+        X = build_flows(simulator, row, fp_df, all_cols, aug_config)
         # print(f"X: {X.shape}")
         all_data[cls_idx].append(X)
 
@@ -308,55 +310,188 @@ def csv2numpy(
     all_cols = cols_small + cols_numeric + cols_large
 
     # [all_classes, all_samples, F, C, T]
-    dataset_5d, (dataset_max_5d, class_counts) = build_dataset(df, fp_df, all_cols, aug_config)
+    dataset_5d, (dataset_max_5d, class_counts) = build_dataset(simulator, df, fp_df, all_cols, aug_config)
     print(dataset_5d.shape)
     print(dataset_max_5d.shape)
     return dataset_5d, (dataset_max_5d, class_counts)
 
+def get_sim_name(cfg: "tcp_aug.TCPAugmentationConfig") -> str:
+    sim_flags = {
+        "nagle": cfg.simulate_nagle,
+        "shift": cfg.simulate_packet_shift,
+        "loss": cfg.simulate_packet_loss,
+        "dup": cfg.simulate_packet_duplication,
+    }
+
+    enabled = [name for name, flag in sim_flags.items() if flag]
+
+    if len(enabled) == 0:
+        return "none"
+    elif len(enabled) == 1:
+        return enabled[0]
+    else:
+        return "all"
+
+def build_sim_flags(sim_name: str):
+    return {
+        "simulate_nagle": sim_name in ["nagle", "all"],
+        "simulate_packet_shift": sim_name in ["shift", "all"],
+        "simulate_packet_loss": sim_name in ["loss", "all"],
+        "simulate_packet_duplication": False # Already done in nagle
+    }
+
+
+# %% [markdown]
+# LOWP Ratio: .001 and .00001
+# 
+# 1) Single Flow
+#    * Len 30 -> raw, aug(nagle, shift, loss, all)
+#    * Len 60 -> raw, aug(nagle, shift, loss, all)
+#    * Len 90 -> raw, aug(nagle, shift, loss, all)
+# 2) 3 Flow
+#    ...
+# 3) 6 Flow
+#    ...
+# 4) 9 Flow
+#    ...
+
+
+# %% [markdown]
+# TCUB
 
 # %%
-tcub_aug_config = tcp_aug.TCPAugmentationConfig(
-    simulate_nagle=False,
-    simulate_packet_shift=False,
-    simulate_packet_loss=False,
-    simulate_packet_duplication=False,
-    target_seq_len=30,
-    drop_seq_len=3,
-    num_flows=3,
-)
-# csv -> pd -> numpy[all_classes, all_samples, F, C, T]
-tcub_dataset_5d, (tcub_dataset_max_5d, class_counts) = csv2numpy(tcub_aug_config, "tcub")
+def _exp_tcub(aug_config: "tcp_aug.TCPAugmentationConfig"):
+    # csv -> pd -> numpy[all_classes, all_samples, F, C, T]
+    tcub_dataset_5d, (tcub_dataset_max_5d, tcub_class_counts) = csv2numpy(aug_config, "tcub")
 
-tcub_cache_path = os.path.join(hypertor_data_path, "tcub", "cache")
-if not os.path.exists(tcub_cache_path):
-    os.makedirs(tcub_cache_path, exist_ok=True)
+    tcub_cache_path = os.path.join(hypertor_data_path, "tcub", "cache")
+    if not os.path.exists(tcub_cache_path):
+        os.makedirs(tcub_cache_path, exist_ok=True)
+    sim_name = get_sim_name(aug_config)
 
-np.save(
-    os.path.join(tcub_cache_path, "tcub_5d.npy"),
-    tcub_dataset_5d,
-)
-"""
-class browsing(id 0): 94 samples
-class chat(id 1): 10 samples
-class email(id 2): 30 samples
-class ftp(id 3): 816 samples
-class p2p(id 4): 388 samples
-class streaming(id 5): 320 samples
-class voip(id 6): 139 samples
-"""
-np.save(
-    os.path.join(tcub_cache_path, "tcub_max_5d.npy"),
-    tcub_dataset_max_5d,
-)
+    file_name = (
+        f"tcub_flows{aug_config.num_flows}"
+        f"_sim{sim_name}"
+        f"_len{aug_config.target_seq_len}_5d.npy"
+    )
+    np.save(
+        os.path.join(tcub_cache_path, file_name),
+        tcub_dataset_5d,
+    )
+    """
+    class browsing(id 0): 94 samples
+    class chat(id 1): 10 samples
+    class email(id 2): 30 samples
+    class ftp(id 3): 816 samples
+    class p2p(id 4): 388 samples
+    class streaming(id 5): 320 samples
+    class voip(id 6): 139 samples
+    """
+    file_name_max = (
+        f"tcub_flows{aug_config.num_flows}"
+        f"_sim{sim_name}"
+        f"_len{aug_config.target_seq_len}_max_5d.npy"
+    )
+    np.save(
+        os.path.join(tcub_cache_path, file_name_max),
+        tcub_dataset_max_5d,
+    )
 
 
 # %%
-cic_aug_config = tcp_aug.TCPAugmentationConfig(
-    simulate_nagle=False,
-    simulate_packet_shift=False,
-    simulate_packet_loss=False,
-    simulate_packet_duplication=False,
-    target_seq_len=30,
-    drop_seq_len=3,
-    num_flows=1,
-)
+# flows: [1,3,6,9], sim: [none, nagle, shift, loss, all], seq_len: [30, 60, 90]
+def run_tcub_exp(num_flows, sim_name, seq_len, seed=2026):
+    sim_flags = build_sim_flags(sim_name)
+
+    tcub_aug_config = tcp_aug.TCPAugmentationConfig(
+        **sim_flags,
+        target_seq_len=seq_len,
+        drop_seq_len=3,
+        num_flows=num_flows,
+        seed=seed,
+    )
+
+    print(f"Running tcub exp: flows={num_flows}, sim={sim_name}, len={seq_len}")
+    _exp_tcub(tcub_aug_config)
+
+def exp_tcub_flows():
+    flows = [1, 3, 6, 9]
+    sims = ["none", "nagle", "shift", "loss", "all"]
+    seq_lens = [30, 60, 90]
+
+    for f, s, l in itertools.product(flows, sims, seq_lens):
+        run_tcub_exp(f, s, l)
+
+exp_tcub_flows()
+
+
+# %% [markdown]
+# CICDarknet
+
+# %%
+def _exp_cicdarknet(aug_config: "tcp_aug.TCPAugmentationConfig"):
+    # csv -> pd -> numpy[all_classes, all_samples, F, C, T]
+    cic_dataset_5d, (cic_dataset_max_5d, cic_class_counts) = csv2numpy(aug_config, "cicdarknet")
+
+    cic_cache_path = os.path.join(hypertor_data_path, "cicdarknet", "cache")
+    if not os.path.exists(cic_cache_path):
+        os.makedirs(cic_cache_path, exist_ok=True)
+    sim_name = get_sim_name(aug_config)
+
+    file_name = (
+        f"cic_flows{aug_config.num_flows}"
+        f"_sim{sim_name}"
+        f"_len{aug_config.target_seq_len}_5d.npy"
+    )
+    np.save(
+        os.path.join(cic_cache_path, file_name),
+        cic_dataset_5d,
+    )
+    """
+    class browsing(id 0): 94 samples
+    class chat(id 1): 10 samples
+    class email(id 2): 30 samples
+    class ftp(id 3): 816 samples
+    class p2p(id 4): 388 samples
+    class streaming(id 5): 320 samples
+    class voip(id 6): 139 samples
+    """
+    file_name_max = (
+        f"cic_flows{aug_config.num_flows}"
+        f"_sim{sim_name}"
+        f"_len{aug_config.target_seq_len}_max_5d.npy"
+    )
+    np.save(
+        os.path.join(cic_cache_path, file_name_max),
+        cic_dataset_max_5d,
+    )
+
+
+# %%
+# flows: [1], sim: [none, nagle, shift, loss, all], seq_len: [30, 60, 90]
+def run_cic_exp(num_flows, sim_name, seq_len, seed=2026):
+    sim_flags = build_sim_flags(sim_name)
+
+    cic_aug_config = tcp_aug.TCPAugmentationConfig(
+        **sim_flags,
+        target_seq_len=seq_len,
+        drop_seq_len=3,
+        num_flows=num_flows,
+        seed=seed,
+    )
+
+    print(f"Running cicdarknet exp: flows={num_flows}, sim={sim_name}, len={seq_len}")
+    _exp_cicdarknet(cic_aug_config)
+
+def exp_cic_flows():
+    flows = [1]
+    sims = ["none", "nagle", "shift", "loss", "all"]
+    seq_lens = [30, 60, 90]
+
+    for f, s, l in itertools.product(flows, sims, seq_lens):
+        run_cic_exp(f, s, l)
+
+exp_cic_flows()
+
+
+# %%
