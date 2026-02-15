@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 
 import hypertor.aug.tcp as tcp_aug
-from hypertor.core import util
 from hypertor.aug import darkflow
 
 # %%
@@ -41,6 +40,9 @@ def _build(
     all_cols,
     target_len,
 ):
+    cols_numeric = ['tcp_window_seq', 'pkt_len_seq']
+    cols_large = ['ttl_seq', 'pkt_usec_seq']
+
     C = len(all_cols)
     F = len(related_df)
 
@@ -63,6 +65,26 @@ def _build(
         seq = X[i] # shape = [C, T]
         seq_aug = simulator.augment_tcp_sequence(seq)
         X[i] = seq_aug
+
+    # Normalization
+    #   1) cols_small -> remains unchanged
+    #   2) cols_numeric -> min-max
+    #   3) cols_large -> log + min-max
+    idx_numeric = [all_cols.index(c) for c in cols_numeric]
+    X[:, idx_numeric, :] = darkflow.min_max_normalize_np(X[:, idx_numeric, :])
+
+    idx_large = [all_cols.index(c) for c in cols_large]
+    X[:, idx_large, :] = darkflow.log_min_max_normalize_np(X[:, idx_large, :])
+
+    # Apply direction to other per-packet features
+    dir_idx = all_cols.index('pkt_dir_seq')
+    # shape: [C, T]
+    direction = X[:, dir_idx, :]
+    for j, col in enumerate(all_cols):
+        if col == 'pkt_dir_seq':
+            continue
+        X[:, j, :] = X[:, j, :]*direction
+
     return X  # [F, C, T]
 
 def _find_related_flows(
@@ -304,14 +326,11 @@ def csv2numpy(
 
 
     simulator = tcp_aug.TCPSequenceSimulator(aug_config)
-    cols_small = [
-        'pkt_dir_seq', 'pkt_len_seq', 'pkt_usec_seq',
-        'fin_seq','syn_seq','rst_seq','psh_seq','ack_seq',
-        'urg_seq','cwr_seq','ece_seq','ip_df_seq','ip_mf_seq'
+    all_cols = [
+        'pkt_dir_seq', 'pkt_len_seq', 'pkt_usec_seq', 'tcp_window_seq',
+        'fin_seq', 'syn_seq', 'rst_seq', 'psh_seq', 'ack_seq',
+        'urg_seq', 'cwr_seq', 'ece_seq', 'ttl_seq', 'ip_df_seq', 'ip_mf_seq',
     ]
-    cols_numeric = ['tcp_window_seq']
-    cols_large = ['ttl_seq']
-    all_cols = cols_small + cols_numeric + cols_large
 
     # [all_classes, all_samples, F, C, T]
     dataset_5d, (dataset_max_5d, class_counts) = build_dataset(simulator, df, fp_df, all_cols, aug_config)
@@ -376,7 +395,8 @@ def _exp_tcub(aug_config: "tcp_aug.TCPAugmentationConfig"):
     file_name = (
         f"tcub_flows{aug_config.num_flows}"
         f"_sim{sim_name}"
-        f"_len{aug_config.target_seq_len}_5d.npy"
+        f"_len{aug_config.target_seq_len}"
+        f"_seed{aug_config.seed}_5d.npy"
     )
     np.save(
         os.path.join(tcub_cache_path, file_name),
@@ -394,7 +414,8 @@ def _exp_tcub(aug_config: "tcp_aug.TCPAugmentationConfig"):
     file_name_max = (
         f"tcub_flows{aug_config.num_flows}"
         f"_sim{sim_name}"
-        f"_len{aug_config.target_seq_len}_max_5d.npy"
+        f"_len{aug_config.target_seq_len}"
+        f"_seed{aug_config.seed}_max_5d.npy"
     )
     np.save(
         os.path.join(tcub_cache_path, file_name_max),
@@ -445,7 +466,8 @@ def _exp_cicdarknet(aug_config: "tcp_aug.TCPAugmentationConfig"):
     file_name = (
         f"cic_flows{aug_config.num_flows}"
         f"_sim{sim_name}"
-        f"_len{aug_config.target_seq_len}_5d.npy"
+        f"_len{aug_config.target_seq_len}"
+        f"_seed{aug_config.seed}_5d.npy"
     )
     np.save(
         os.path.join(cic_cache_path, file_name),
@@ -463,7 +485,8 @@ def _exp_cicdarknet(aug_config: "tcp_aug.TCPAugmentationConfig"):
     file_name_max = (
         f"cic_flows{aug_config.num_flows}"
         f"_sim{sim_name}"
-        f"_len{aug_config.target_seq_len}_max_5d.npy"
+        f"_len{aug_config.target_seq_len}"
+        f"_seed{aug_config.seed}_max_5d.npy"
     )
     np.save(
         os.path.join(cic_cache_path, file_name_max),

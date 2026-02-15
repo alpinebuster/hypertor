@@ -107,6 +107,15 @@ def df_to_normalized_numpy(
     idx_large = [all_cols.index(c) for c in cols_large]
     X[:, idx_large, :] = log_min_max_normalize_np(X[:, idx_large, :])
 
+    # Apply direction to other per-packet features
+    dir_idx = all_cols.index('pkt_dir_seq')
+    # shape: [C, T]
+    direction = X[:, dir_idx, :]
+    for j, col in enumerate(all_cols):
+        if col == 'pkt_dir_seq':
+            continue
+        X[:, j, :] = X[:, j, :]*direction
+
     return X, all_cols
 
 def main(argv):

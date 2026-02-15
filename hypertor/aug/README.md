@@ -45,5 +45,6 @@ Perform a two-stage classification: first determine if the flow is Tor, then cla
 Run from `hypertor` project's root dir
 
 ```sh
-nohup ./scripts/darkflow_aug.sh > darkflow_aug.log 2>&1 &
+cd ./hypertor/aug/
+nohup python ./fp_multi_flows.py > fp_multi_flows.log 2>&1 &
 ```
