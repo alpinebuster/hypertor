@@ -1,6 +1,11 @@
 # Imbalanced Traffic Classification
 
-In this study, we introduce a comprehensive framework formulated to surmount these obstacles: (1) To enhance feature representation for effectively distinguishing between traffic classes, we propose a bespoke fingerprinting mechanism that aggregates consecutive flows from a single access event into multi-flow constructs; (2) To mitigate the constraints imposed by limited training data, we introduce a TCP-sequence-driven data augmentation strategy; (3) We tackle class imbalance through a variable-prototype learning paradigm, which adaptively determines the number of prototypes per class while concurrently learning data-driven class centers. This approach yields decision boundaries characterized by enhanced class discriminability; and (4) We employ a Transformer-based layerwise hypernetwork, wherein a Transformer architecture generates the parameters for Convolutional Neural Networks (CNNs), only sharing hypernetwork weights to ensure data privacy.
+In this study, we introduce a comprehensive framework formulated to surmount these obstacles:
+
+(1) To enhance feature representation for effectively distinguishing between traffic classes, we propose a bespoke fingerprinting mechanism that aggregates consecutive flows from a single access event into multi-flow constructs;
+(2) To mitigate the constraints imposed by limited training data, we introduce a TCP-sequence-driven data augmentation strategy;
+(3) We tackle class imbalance through a variable-prototype learning paradigm, which adaptively determines the number of prototypes per class while concurrently learning data-driven class centers. This approach yields decision boundaries characterized by enhanced class discriminability;
+(4) We employ a Transformer-based layerwise hypernetwork, wherein a Transformer architecture generates the parameters for Convolutional Neural Networks (CNNs), only sharing hypernetwork weights to ensure data privacy.
 
 ## Getting started
 
