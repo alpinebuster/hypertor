@@ -1,11 +1,28 @@
 # Imbalanced Traffic Classification
 
-In this study, we introduce a comprehensive framework formulated to surmount these obstacles:
+In this study, we propose a comprehensive framework that integrates multiple components for traffic classification.
 
-(1) To enhance feature representation for effectively distinguishing between traffic classes, we propose a bespoke fingerprinting mechanism that aggregates consecutive flows from a single access event into multi-flow constructs;
-(2) To mitigate the constraints imposed by limited training data, we introduce a TCP-sequence-driven data augmentation strategy;
-(3) We tackle class imbalance through a variable-prototype learning paradigm, which adaptively determines the number of prototypes per class while concurrently learning data-driven class centers. This approach yields decision boundaries characterized by enhanced class discriminability;
-(4) We employ a Transformer-based layerwise hypernetwork, wherein a Transformer architecture generates the parameters for Convolutional Neural Networks (CNNs), only sharing hypernetwork weights to ensure data privacy.
+**1. Multi-Flow Fingerprinting Mechanism**
+To enhance feature representation and effectively distinguish between traffic classes, we propose a bespoke fingerprinting mechanism. This method aggregates multi flows originating from a single access event, enabling richer and more discriminative traffic representations.
+
+**2. TCP-Sequence-Driven Data Augmentation**
+To alleviate the limitations imposed by scarce training data, we introduce a TCP-sequence-driven data augmentation strategy. This approach leverages intrinsic TCP sequence characteristics to generate meaningful augmented samples while preserving semantic consistency.
+
+**3. Variable-Prototype Learning for Class Imbalance**
+To handle class imbalance, we propose a variable-prototype learning paradigm that:
+
+- Adaptively determines the number of prototypes for each class  
+- Simultaneously learns data-driven class centers  
+
+This design produces more discriminative decision boundaries and improves classification robustness, particularly for minority classes.
+
+**4. Transformer-Based Layerwise Hypernetwork**
+We employ a Transformer-based layerwise hypernetwork, in which:
+
+- A Transformer architecture generates the parameters of Convolutional Neural Networks (CNNs) & Variable Prototypes
+- Only hypernetwork weights are shared across participants  
+
+This strategy enhances model flexibility while preserving data privacy.
 
 ## Getting started
 
