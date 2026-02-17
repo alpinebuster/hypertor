@@ -71,7 +71,10 @@ def merge_npy_files(data_config: DatasetConfig):
     If sim == 'none', only need the file with seed 2026.
     """
     prefix, sim_name = _get_cached_npy_filename_prefix(data_config)
-    ratio_path = os.path.join(data_config.cache_path, data_config.dataset_name)
+    ratio_path = os.path.join(
+        data_config.cache_path,
+        f"ratio_{data_config.darknet_ratio}"
+    )
 
     if os.path.exists(ratio_path):
         if sim_name == "none":
@@ -119,7 +122,10 @@ def merge_npy_files(data_config: DatasetConfig):
 
 def _load_cache(data_config: DatasetConfig) -> Optional[dict[int, np.ndarray]]:
     """Loads cached dataset from a saved NumPy array."""
-    ratio_path = os.path.join(data_config.cache_path, data_config.dataset_name)
+    ratio_path = os.path.join(
+        data_config.cache_path,
+        f"ratio_{data_config.darknet_ratio}"
+    )
     logging.info(
         f"{util.get_ddp_msg()}"
         f'Looking for cache in "{ratio_path}..."'

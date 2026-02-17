@@ -22,6 +22,7 @@ import torch.distributed as dist
 from hypertor import common_flags
 from hypertor import eval_model_flags  # pylint:disable=unused-import
 from hypertor import variable_proto_flags  # pylint:disable=unused-import
+from hypertor import aug_flags  # pylint:disable=unused-import
 
 from hypertor.core import common
 from hypertor.core import common_ht

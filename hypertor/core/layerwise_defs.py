@@ -19,7 +19,11 @@ def maxpool_model(
     last_maxpool=2,
 ):
     """Creates a larger 4-layer model (similar to the one in MAML paper)."""
-    conv_args = {"model_config": model_config, "maxpool_size": 2, "padding": "same"}
+    conv_args = {
+        "model_config": model_config,
+        "maxpool_size": None if model_config.use_darkflow else 2,
+        "padding": "same",
+    }
     layers = [
         ConvLayer(name=f"layer_{i + 1}", head_builder=LogitsLayer, **conv_args)
         for i in range(num_layers - 1)

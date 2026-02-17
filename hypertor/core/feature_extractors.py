@@ -419,7 +419,7 @@ class DarkflowSharedMultilayerFeatureExtractor(FeatureExtractor):
         else:
             feat = torch.mean(feat, dim=1)
 
-        # (B, feature_layers*K)
+        # (B, feature_layers*K), e.g. [7, 96]
         return feat
 
 
@@ -470,6 +470,8 @@ class SharedHead(nn.Module):
 def fe_multi_layer(config: LayerwiseModelConfig, num_layers=2, use_bn=False):
     if config.use_darkflow:
         return DarkflowSharedMultilayerFeatureExtractor(
+            # (B, F, C, T) → (B*F, C, T)
+            # Chanel of Conv1D is `C`,  not `F`
             in_channels=config.shared_input_dim,
             feature_layers=num_layers,
             feature_dim=config.shared_features_dim,

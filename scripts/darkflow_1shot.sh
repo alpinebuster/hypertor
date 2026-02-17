@@ -11,14 +11,14 @@ python -m hypertor.train --num_layerwise_features=8 --default_num_channels=8 \
   --train_steps=4000000 --steps_between_saves=1000 --lw_key_query_dim=1.0 \
   --lw_value_dim=1.0 --lw_inner_dim=1.0 --cnn_model_name='maxpool-4-layer' \
   --embedding_dim=32 --num_layers=3 --stride=1 --heads=2 \
-  --shared_feature_extractor='3-layer-bn' --shared_input_dim=1 --shared_features_dim=32 \
+  --shared_feature_extractor='3-layer-bn' --shared_input_dim=15 --shared_features_dim=32 \
   --shared_feature_extractor_padding=same --layerwise_generator=joint \
   --nolw_use_nonlinear_feature --lw_weight_allocation=output --nolw_generate_bias \
   --nolw_generate_bn --nouse_decoder --noadd_trainable_weights \
   --balanced_batches --per_label_augmentation \
   --smooth_probability=0.0 --negate_probability=0.0 \
-  --train_dataset='cicdarknet:0-7' \
-  --test_dataset='cicdarknet:0-7' --eval_datasets='cicdarknet' \
+  --train_dataset='cicdarknet:0-6' \
+  --test_dataset='cicdarknet:0-6' --eval_datasets='cicdarknet' \
   --num_task_evals=1024 --num_eval_batches=16 --eval_batch_size=100 \
   --shuffle_labels_seed=2026 \
   --test_smooth_probability=0.0 --test_negate_probability=0.0 \
