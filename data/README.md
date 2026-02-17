@@ -1,0 +1,9 @@
+# DARKFLOW DATASETS
+
+## Getting Started
+
+At project's root dir:
+
+```sh
+rsync -avzP ./data/  username@server_ip:/imbalanced_traffic_classification/hypertor/data/
+```
