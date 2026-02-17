@@ -1,10 +1,7 @@
 """Training library and binary."""
 
-import dataclasses
-import functools
 import os
 import random
-import glob
 
 from typing import Optional
 
@@ -36,53 +33,136 @@ def _make_augmentation_config(data_config: DatasetConfig, num_labels: int):
         return datasets.AugmentationConfig(random_config=random_config)
 
 
-def _convert_bool(arr: np.ndarray):
-    return arr.astype(np.int8) * 255
+def _get_cached_npy_filename_prefix(data_config: DatasetConfig) -> tuple[str, str]:
+    assert data_config.tcp_aug_config is not None
+    sim_flags = {
+        "nagle": data_config.tcp_aug_config.simulate_nagle,
+        "shift": data_config.tcp_aug_config.simulate_packet_shift,
+        "loss": data_config.tcp_aug_config.simulate_packet_loss,
+        # "dup": data_config.tcp_aug_config.simulate_packet_duplication,
+    }
+    enabled = [name for name, flag in sim_flags.items() if flag]
+
+    if len(enabled) == 0:
+        sim_name = "none"
+    elif len(enabled) == 1:
+        sim_name = enabled[0]
+    else:
+        sim_name = "all"
+
+    prefix_ds_name = ""
+    if data_config.dataset_name == "cicdarknet":
+        prefix_ds_name = "cic"
+    elif data_config.dataset_name == "tcub":
+        prefix_ds_name = "tcub"
+    else:
+        raise RuntimeError("Wrong dataset")
+    prefix = (
+        f"{prefix_ds_name}_flows{data_config.tcp_aug_config.num_flows}"
+        f"_sim{sim_name}"
+        f"_len{data_config.tcp_aug_config.target_seq_len}"
+    )
+    return prefix, sim_name
+
+def merge_npy_files(data_config: DatasetConfig):
+    """
+    Merge files for seeds 2020–2026 based on the current ratio folder and current configuration.
+
+    If sim == 'none', only need the file with seed 2026.
+    """
+    prefix, sim_name = _get_cached_npy_filename_prefix(data_config)
+    ratio_path = os.path.join(data_config.cache_path, data_config.dataset_name)
+
+    if os.path.exists(ratio_path):
+        if sim_name == "none":
+            return
+
+        arrays = []
+        for seed in range(2020, 2026+1):
+            file_path = os.path.join(
+                ratio_path,
+                f"{prefix}_seed{seed}_5d.npy"
+            )
+
+            if not os.path.exists(file_path):
+                logging.info(
+                    f"{util.get_ddp_msg()}"
+                    f"[WARNING] Missing {file_path}"
+                )
+                continue
+
+            logging.info(
+                f"{util.get_ddp_msg()}"
+                f"Loading {file_path}"
+            )
+            if os.path.exists(file_path):
+                arr = np.load(file_path)
+                if arr.ndim != 5:
+                    raise ValueError(f"Expected 5D array, got shape {arr.shape}")
+                
+                arrays.append(arr)
+            else:
+                continue
+
+        if len(arrays) == 0:
+            raise RuntimeError("No matching npy files found.")
+        merged = np.concatenate(arrays, axis=1)
+        save_path = os.path.join(
+            ratio_path,
+            f"{prefix}_merged_5d.npy"
+        )
+        np.save(save_path, merged)
+        logging.info(
+            f"{util.get_ddp_msg()}"
+            f"[MERGED] Saved → {save_path}"
+        )
 
 def _load_cache(data_config: DatasetConfig) -> Optional[dict[int, np.ndarray]]:
     """Loads cached dataset from a saved NumPy array."""
-    folder = os.path.join(data_config.cache_path, data_config.dataset_name)
-
-    pattern = os.path.join(data_config.cache_path, f"*{data_config.dataset_name}_ch_first*.npy")
-    files = glob.glob(pattern)
-    path = os.path.abspath(files[0]) if files else ""
-
+    ratio_path = os.path.join(data_config.cache_path, data_config.dataset_name)
     logging.info(
         f"{util.get_ddp_msg()}"
-        f'Looking for cache in "{data_config.cache_path}..."'
+        f'Looking for cache in "{ratio_path}..."'
     )
-    if os.path.exists(path):
-        # Reading a NumPy cache.
-        with open(path, "rb") as dev:
-            data = np.load(dev)
+    prefix, sim_name = _get_cached_npy_filename_prefix(data_config)
 
-        if len(data.shape) < 4:
-            data = np.expand_dims(data, axis=-3)
-        # Converting a 5D tensor [all_classes, all_samples, C, H, W] to a dictionary by label.
-        if data.dtype == bool:
-            return {k: _convert_bool(data[k]) for k in range(data.shape[0])}
-        else:
-            return {k: data[k] for k in range(data.shape[0])}
-    elif os.path.exists(folder):
-        # Reading from a folder with NumPy cache files.
-        names = os.listdir(folder)
-        output = {}
-        index = 0
-        for name in sorted(names):
-            # Each file contains a list of sample sets for different labels.
-            # File names are sorted to keep a proper label order.
-            with open(os.path.join(folder, name), "rb") as data_file:
-                file_records = np.load(data_file, allow_pickle=True)
-            for record in file_records:
-                output[index] = record
-                index += 1
-        return output
-    logging.info(
-        f"{util.get_ddp_msg()}"
-        f"No cache files for {data_config.dataset_name} found. Falling back "
-        "to torch dataset."
-    )
-    return None
+    if sim_name == "none":
+        _npy_path = os.path.join(
+            ratio_path,
+            f"{prefix}_seed2026_5d.npy"
+        )
+        logging.info(
+            f"{util.get_ddp_msg()}"
+            f"Loading not simulated data with seed 2026 {_npy_path}"
+        )
+    else:
+        _npy_path = os.path.join(
+            ratio_path,
+            f"{prefix}_merged_5d.npy"
+        )
+        if not os.path.exists(_npy_path):
+            merge_npy_files(data_config)
+
+        logging.info(
+            f"{util.get_ddp_msg()}"
+            f"Loading merged {_npy_path}"
+        )
+    arr: np.ndarray = np.load(_npy_path)
+    num_classes = arr.shape[0]
+    data: dict[int, np.ndarray] = {
+        label: arr[label]
+        for label in range(num_classes)
+    }
+
+    if data is None:
+        logging.info(
+            f"{util.get_ddp_msg()}"
+            f"No cache files for {data_config.dataset_name} found. Falling back "
+            "to torch dataset."
+        )
+        return None
+    else:
+        return data
 
 def make_numpy_array(
     data_config: DatasetConfig,

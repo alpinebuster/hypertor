@@ -33,17 +33,13 @@ SupervisedSample = Tuple[
 
 def get_dataset_info(dataset_name: str) -> DatasetInfo:
     """Returns basic information about the dataset."""
-    if dataset_name == "darkflow":
+    if dataset_name == "cicdarknet":
         return DatasetInfo(
-            num_labels=62, num_samples_per_label=1500, transpose_samples=True
+            num_labels=7, num_samples_per_label=7, transpose_samples=False
         )
-    elif dataset_name == "lexnetflow":
+    elif dataset_name == "tcub":
         return DatasetInfo(
-            num_labels=1623, num_samples_per_label=20, transpose_samples=False
-        )
-    elif dataset_name == "omniglot":
-        return DatasetInfo(
-            num_labels=1623, num_samples_per_label=20, transpose_samples=False
+            num_labels=7, num_samples_per_label=7, transpose_samples=False
         )
     else:
         raise ValueError(f'Dataset "{dataset_name}" is not supported.')

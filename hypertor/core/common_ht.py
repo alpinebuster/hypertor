@@ -11,6 +11,7 @@ import torch.nn.functional as F
 
 if TYPE_CHECKING:
     from hypertor.core.datasets import HTDataset
+    from hypertor.aug.tcp import tor
 
 
 @dataclasses.dataclass
@@ -26,6 +27,9 @@ class DatasetConfig:
 
     # Dataset information
     dataset_name: str
+    
+    darknet_ratio: float = 0.001
+    tcp_aug_config: Optional["tor.TCPAugmentationConfig"] = None
     use_label_subset: Optional[list[int]] = None
     ds_split: str = "train"
     meta_dataset_split: str = "train"
@@ -56,6 +60,7 @@ class ModelConfig:
 
     # Samples
     flows_shape: tuple[int, int] = (28, 28)
+    # samples_per_label = num_transformer_samples // self.num_labels
     num_transformer_samples: int = 32
     num_cnn_samples: int = 128
 

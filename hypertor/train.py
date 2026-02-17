@@ -31,6 +31,7 @@ from hypertor.core import train_lib
 from hypertor.core import util
 from hypertor.variable_proto import common_vp
 from hypertor.variable_proto.receptive_field import compute_proto_layer_rf_info
+from hypertor.aug.tcp import tor
 
 FLAGS = flags.FLAGS
 
@@ -169,6 +170,8 @@ def make_dataset_config(dataset_spec=""):
         use_label_subset=label_set,
         ds_split="train",
         data_dir=FLAGS.data_dir,
+        darknet_ratio=FLAGS.darknet_ratio,
+        tcp_aug_config=tor.make_tcp_augmentation_config(),
         smooth_probability=FLAGS.smooth_probability,
         negate_probability=FLAGS.negate_probability,
         per_label_augmentation=FLAGS.per_label_augmentation,

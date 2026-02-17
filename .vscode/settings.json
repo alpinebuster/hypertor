@@ -23,6 +23,8 @@
         "layerwise",
         "lexnet",
         "lowptor",
+        "lpcicdarknet",
+        "lptcub",
         "MAML",
         "matplotlib",
         "maxpool",

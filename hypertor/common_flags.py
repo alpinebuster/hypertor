@@ -3,7 +3,7 @@
 from absl import flags
 
 flags.DEFINE_integer(
-    "samples_transformer", 32, "Number of samples fed to the transformer."
+    "samples_transformer", 32, "Number of samples fed to the transformer (samples_per_label = num_transformer_samples // self.num_labels)."
 )
 flags.DEFINE_integer("samples_cnn", 128, "Number of samples fed to the CNN.")
 flags.DEFINE_integer(
@@ -332,4 +332,9 @@ flags.DEFINE_bool(
     "use_darkflow",
     True,
     "If enabled, utilizes DarkFlow features."
+)
+flags.DEFINE_float(
+    "darknet_ratio",
+    0.001,
+    "The darknet (tor) traffic ratio in all flows.",
 )

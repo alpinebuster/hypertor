@@ -9,6 +9,12 @@ flags.DEFINE_bool(
     False,
     "Enable simulation of the Nagle algorithm, which aggregates small packets to reduce transmission overhead."
 )
+# NOTE: Duplication already simulated in nagle
+flags.DEFINE_bool(
+    "simulate_packet_duplication",
+    False,
+    "Enable simulation of packet duplication to test handling of duplicated packets."
+)
 flags.DEFINE_bool(
     "simulate_packet_shift",
     False,
@@ -18,11 +24,6 @@ flags.DEFINE_bool(
     "simulate_packet_loss",
     False,
     "Enable simulation of packet loss to assess system robustness in unreliable network conditions."
-)
-flags.DEFINE_bool(
-    "simulate_packet_duplication",
-    False,
-    "Enable simulation of packet duplication to test handling of duplicated packets."
 )
 
 flags.DEFINE_integer(
