@@ -92,7 +92,7 @@ transformers = "^4.57.3"
 
 
 [tool.poetry.group.dev.dependencies]
-setuptools = "^82.0.0"
+setuptools = "80.0.0" # `Tensorboard requires this version or below`
 wheel = "^0.46.3"
 
 [build-system]
