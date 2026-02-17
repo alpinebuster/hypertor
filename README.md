@@ -1,4 +1,4 @@
-# Imbalanced Traffic Classification
+# Imbalanced Darknet Traffic Classification
 
 In this study, we propose a comprehensive framework that integrates multiple components for traffic classification.
 
