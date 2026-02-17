@@ -287,6 +287,7 @@ def build_dataset(
 def csv2numpy(
     aug_config: "tcp_aug.TCPAugmentationConfig",
     dataset: str = "cicdarknet",
+    ratio: float = 0.00001,
 ):
     if dataset.lower() == "cicdarknet":
         base_path = "../../data/cicdarknet/csv"
@@ -301,7 +302,7 @@ def csv2numpy(
     # The cicdarknet dataset did NOT support multi flows
     if dataset.lower() == "cicdarknet":
         base_file = os.path.join(base_path, "darkflow_raw.csv")
-    fpbase_file = os.path.join(lpbase_path, "darkflow_raw.csv")
+    fpbase_file = os.path.join(lpbase_path, f"darkflow_raw_{ratio}.csv")
 
     df = pd.read_csv(base_file, encoding="utf-8-sig")
     fp_df = pd.read_csv(fpbase_file, encoding="utf-8-sig")
@@ -379,15 +380,18 @@ def build_sim_flags(sim_name: str):
 #    ...
 
 
+# %%
+RATIO = 0.00001
+
 # %% [markdown]
 # TCUB
 
 # %%
 def _exp_tcub(aug_config: "tcp_aug.TCPAugmentationConfig"):
     # csv -> pd -> numpy[all_classes, all_samples, F, C, T]
-    tcub_dataset_5d, (tcub_dataset_max_5d, tcub_class_counts) = csv2numpy(aug_config, "tcub")
+    tcub_dataset_5d, (tcub_dataset_max_5d, tcub_class_counts) = csv2numpy(aug_config, "tcub", RATIO)
 
-    tcub_cache_path = os.path.join(hypertor_data_path, "tcub", "cache")
+    tcub_cache_path = os.path.join(hypertor_data_path, "tcub", "cache", f"ratio_{RATIO}")
     if not os.path.exists(tcub_cache_path):
         os.makedirs(tcub_cache_path, exist_ok=True)
     sim_name = get_sim_name(aug_config)
@@ -456,9 +460,9 @@ exp_tcub_flows()
 # %%
 def _exp_cicdarknet(aug_config: "tcp_aug.TCPAugmentationConfig"):
     # csv -> pd -> numpy[all_classes, all_samples, F, C, T]
-    cic_dataset_5d, (cic_dataset_max_5d, cic_class_counts) = csv2numpy(aug_config, "cicdarknet")
+    cic_dataset_5d, (cic_dataset_max_5d, cic_class_counts) = csv2numpy(aug_config, "cicdarknet", RATIO)
 
-    cic_cache_path = os.path.join(hypertor_data_path, "cicdarknet", "cache")
+    cic_cache_path = os.path.join(hypertor_data_path, "cicdarknet", "cache", f"ratio_{RATIO}")
     if not os.path.exists(cic_cache_path):
         os.makedirs(cic_cache_path, exist_ok=True)
     sim_name = get_sim_name(aug_config)
