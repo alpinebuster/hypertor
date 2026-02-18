@@ -46,5 +46,5 @@ Run from `hypertor` project's root dir
 
 ```sh
 cd ./hypertor/aug/
-nohup python ./fp_multi_flows.py > fp_multi_flows.log 2>&1 &
+nohup python ./fp_multi_flows.py > fp_multi_flows_1e-05_seed_2026.log 2>&1 &
 ```

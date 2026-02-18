@@ -381,7 +381,7 @@ def build_sim_flags(sim_name: str):
 
 
 # %%
-RATIO = 0.00001
+RATIO = 0.001
 
 # %% [markdown]
 # TCUB
@@ -427,7 +427,6 @@ def _exp_tcub(aug_config: "tcp_aug.TCPAugmentationConfig"):
     )
 
 
-# %%
 # flows: [1,3,6,9], sim: [none, nagle, shift, loss, all], seq_len: [30, 60, 90]
 def run_tcub_exp(num_flows, sim_name, seq_len, seed=2026):
     sim_flags = build_sim_flags(sim_name)
@@ -440,7 +439,7 @@ def run_tcub_exp(num_flows, sim_name, seq_len, seed=2026):
         seed=seed,
     )
 
-    print(f"Running tcub exp: flows={num_flows}, sim={sim_name}, len={seq_len}")
+    print(f"Running tcub exp: ratio={RATIO}, flows={num_flows}, sim={sim_name}, len={seq_len}, seed={seed}")
     _exp_tcub(tcub_aug_config)
 
 def exp_tcub_flows():
@@ -498,7 +497,6 @@ def _exp_cicdarknet(aug_config: "tcp_aug.TCPAugmentationConfig"):
     )
 
 
-# %%
 # flows: [1], sim: [none, nagle, shift, loss, all], seq_len: [30, 60, 90]
 def run_cic_exp(num_flows, sim_name, seq_len, seed=2026):
     sim_flags = build_sim_flags(sim_name)
@@ -511,7 +509,7 @@ def run_cic_exp(num_flows, sim_name, seq_len, seed=2026):
         seed=seed,
     )
 
-    print(f"\nRunning cicdarknet exp: flows={num_flows}, sim={sim_name}, len={seq_len}")
+    print(f"\nRunning cicdarknet exp: ratio={RATIO}, flows={num_flows}, sim={sim_name}, len={seq_len}, seed={seed}")
     _exp_cicdarknet(cic_aug_config)
 
 def exp_cic_flows():

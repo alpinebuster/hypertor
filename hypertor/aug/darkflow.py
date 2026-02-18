@@ -47,8 +47,9 @@ def parse_list_column(s: str) -> list[int]:
         return []
 
 def min_max_normalize_np(arr: np.ndarray):
-    min_val = arr.min(axis=1, keepdims=True)
-    max_val = arr.max(axis=1, keepdims=True)
+    # `arr` shape: (F, C, T)
+    min_val = arr.min(axis=2, keepdims=True)
+    max_val = arr.max(axis=2, keepdims=True)
     denom = max_val - min_val
     denom[denom == 0] = 1
     return (arr - min_val) / denom
