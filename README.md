@@ -145,31 +145,39 @@ The code consists of several parts:
    and produces a set of output embeddings (containing CNN model weights).
 4. _Transformer IO (Output)_ — converts Transformer output to a list of tensors
    that contain unstructured CNN model weights.
-5. _CNN Model Builder_ — uses generated weight tensors to create a CNN.
+5. _Model Builder_ — uses generated weight tensors to create a CNN.
+6. _Variable Prototype Layer_ - Generates adaptable prototype representations for each class.
+7. _Prototype Logits Layer_ - Computes class predictions based on distances to the prototypes.
 
 The model is trained end-to-end:
+
 ```txt
    ┌───────────────────────────┐
    │ (a) Generate a batch of   │
-   │     samples for a new     │<┐
-   │         episode           │ │
-   └─────────────┬─────────────┘ │
-                 │               │
-                 ▼               │
-   ┌───────────────────────────┐ │
-   │ (b) Pass support samples  │ │
-   │     to Transformer →      │ │
-   │     Transformer generates │ │
-   │           CNN             │ │
-   └─────────────┬─────────────┘ │
-                 │               │
-                 ▼               │
-   ┌───────────────────────────┐ │
-   │ (c) Pass query samples    │ │
-   │     through generated CNN │ │ Update Prototypes
-   │     and compute loss →    │─┘
-   │     Backprop to train     │
-   │       Transformer         │
+   │     samples for a new     │<─┐
+   │         episode           │  │
+   └─────────────┬─────────────┘  │
+                 │                │
+                 ▼                │
+   ┌───────────────────────────┐  │
+   │ (b) Pass support samples  │  │
+   │      to Transformer →     │  │
+   │   Transformer generates   │  │
+   │      `CNN + VP + PL`      │  │
+   └─────────────┬─────────────┘  │
+                 │                │
+                 ▼                │
+   ┌───────────────────────────┐  │
+   │ (c) Pass query samples    │  │
+   │    through **generated    |  |
+   |       target model**      │  │ Update Prototypes
+   │     and compute loss →    │──┘
+   │      Backprop to train    │
+   │        Transformer        |
+   │             ↓             |
+   |   Small-batch updates to  |
+   |    classification heads   |
+   |   within the push cycle   |
    └───────────────────────────┘
                  │
                  ▼
