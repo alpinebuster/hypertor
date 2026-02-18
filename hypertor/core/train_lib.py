@@ -160,7 +160,6 @@ def _load_cache(data_config: DatasetConfig) -> Optional[dict[int, np.ndarray]]:
         label: arr[label][:, :, :data_config.tcp_aug_config.num_pkt_features, :]
         for label in range(num_classes)
     }
-    import pdb;pdb.set_trace()
 
     if data is None:
         logging.info(
