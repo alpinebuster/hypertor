@@ -1526,8 +1526,9 @@ class LayerwiseModel(nn.Module):
                 )
     
             self.shared_head = feature_extractors.SharedHead(
-                shared_features_dim=model_config.shared_features_dim*num_feature_layers
-                    if model_config.use_darkflow else model_config.shared_features_dim,
+                # shared_features_dim=model_config.shared_features_dim*num_feature_layers
+                #     if model_config.use_darkflow else model_config.shared_features_dim,
+                shared_features_dim=model_config.shared_features_dim,
                 real_class_min=dataset.real_class_min,
                 real_class_max=dataset.real_class_max,
                 label_smoothing=model_config.label_smoothing,

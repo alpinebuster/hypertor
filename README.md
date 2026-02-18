@@ -56,8 +56,7 @@ sudo journalctl -e -f -u tor@default
 
 ### Running Examples
 
-Folder `scripts` contains several training scripts for `darkflow`,
-`darknet-dataset-2020` and `ISCX-Tor-NonTor-2017` datasets.
+Folder `scripts` contains several training scripts for `darknet-dataset-2020` and `ISCX-Tor-NonTor-2017` datasets.
 
 They can be executed as follows:
 
@@ -65,7 +64,7 @@ They can be executed as follows:
 ./scripts/darkflow_1shot.sh --data_dir=./data/darkflow --data_numpy_dir=./data/darkflow/cache --train_log_dir=./data/darkflow/logs/torch
 ```
 
-The evaluation script `evaluate_model.py` can be executed in parallel to
+The **evaluation** script `evaluate_model.py` can be executed **in parallel** to
 evaluate produced checkpoints while the model is being trained.
 The evaluation script accepts the same parameters as the training script.
 

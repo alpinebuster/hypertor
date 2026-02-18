@@ -244,7 +244,7 @@ flags.DEFINE_bool(
 )
 flags.DEFINE_enum(
     "shared_feature_extractor_padding",
-    "valid",
+    "same",
     ["valid", "same"],
     "Convolutional layer padding to use in the shared feature extractor.",
 )

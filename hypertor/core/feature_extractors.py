@@ -410,7 +410,17 @@ class DarkflowSharedMultilayerFeatureExtractor(FeatureExtractor):
             pooled.append(feat)
 
         # Concat over layers: (B*F, feature_layers*K)
-        feat = torch.cat(pooled, dim=-1)
+        # feat = torch.cat(pooled, dim=-1)
+        ### NEW
+        # (B*F, L, K)
+        # feat = torch.stack(pooled, dim=1)
+        # layer pooling → (B*F, K)
+        # feat = torch.mean(feat, dim=1)
+
+        # Only use last layer
+        feat = pooled[-1] # (B*F, K)
+        ###
+
         # (B*F, ·) → (B, F, ·)
         feat = feat.view(B_x, F_x, -1)
         # Flow pooling
@@ -419,7 +429,8 @@ class DarkflowSharedMultilayerFeatureExtractor(FeatureExtractor):
         else:
             feat = torch.mean(feat, dim=1)
 
-        # (B, feature_layers*K), e.g. [7, 96]
+        # OLD: (B, feature_layers*K)
+        # NEW: (B*F, K)
         return feat
 
 

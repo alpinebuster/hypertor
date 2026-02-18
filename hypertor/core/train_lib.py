@@ -156,7 +156,7 @@ def _load_cache(data_config: DatasetConfig) -> Optional[dict[int, np.ndarray]]:
     arr: np.ndarray = np.load(_npy_path)
     num_classes = arr.shape[0]
     data: dict[int, np.ndarray] = {
-        label: arr[label]
+        label: arr[label][:, :, :3, :]
         for label in range(num_classes)
     }
 
@@ -265,7 +265,6 @@ def _make_dataset_helper_unbalanced(
 
     if flows_shape is not None:
         samples = _resize(samples, flows_shape)
-    samples = samples / 128.0 - 1.0
 
     sample: datasets.SupervisedSample = (samples, labels, classes)
     return sample
@@ -303,8 +302,7 @@ def _make_dataset_helper_balanced(
     for samples, labels, classes in samples_labels:
         if flows_shape is not None:
             samples = _resize(samples, flows_shape)
-        # [0, 255] → [0, 1.992] → [-1.0, 0.992]
-        samples = samples / 128.0 - 1.0
+
         output.append((samples, labels, classes))
 
     return output

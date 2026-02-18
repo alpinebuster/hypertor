@@ -2,7 +2,7 @@
 #    `nohup ./scripts/darkflow_1shot_exp1.sh --data_dir=./data/cicdarknet --data_numpy_dir=./data/cicdarknet/cache --train_log_dir=./data/cicdarknet/logs/torch_1shot > darkflow_cicdarknet_1shot_exp1.log 2>&1 &`
 # 
 python -m hypertor.train --num_layerwise_features=8 --default_num_channels=8 \
-  --samples_transformer=7 --samples_cnn=14 --num_labels=7 --learning_rate=5e-4 \
+  --samples_transformer=35 --samples_cnn=35 --num_labels=7 --learning_rate=5e-4 \
   --learning_rate_decay_steps=100000 --learning_rate_decay_rate=0.95 \
   --train_steps=4000000 --steps_between_saves=1000 --lw_key_query_dim=1.0 \
   --lw_value_dim=1.0 --lw_inner_dim=1.0 --cnn_model_name='maxpool-4-layer' \
