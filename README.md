@@ -146,8 +146,8 @@ The code consists of several parts:
 4. _Transformer IO (Output)_ — converts Transformer output to a list of tensors
    that contain unstructured CNN model weights.
 5. _Model Builder_ — uses generated weight tensors to create a CNN.
-6. _Variable Prototype Layer_ - Generates adaptable prototype representations for each class.
-7. _Prototype Logits Layer_ - Computes class predictions based on distances to the prototypes.
+6. _Variable Prototype Layer (VP)_ - Generates adaptable prototype representations for each class.
+7. _Prototype Logits Layer (PL)_ - Computes class predictions based on distances to the prototypes.
 
 The model is trained end-to-end:
 
@@ -169,14 +169,13 @@ The model is trained end-to-end:
                  ▼                │
    ┌───────────────────────────┐  │
    │ (c) Pass query samples    │  │
-   │    through **generated    |  |
-   |       target model**      │  │ Update Prototypes
+   │    through **generated    |  |    Update Variable Prototypes
+   |       target model**      │  │ (VP & its associated Transformer)
    │     and compute loss →    │──┘
    │      Backprop to train    │
    │        Transformer        |
    │             ↓             |
-   |   Small-batch updates to  |
-   |    classification heads   |
+   | Small-batch updates to PL |
    |   within the push cycle   |
    └───────────────────────────┘
                  │
