@@ -10,7 +10,6 @@ To alleviate the limitations imposed by scarce training data, we introduce a TCP
 
 **3. Variable-Prototype Learning for Class Imbalance**
 To handle class imbalance, we propose a variable-prototype learning paradigm that:
-
 - Adaptively determines the number of prototypes for each class  
 - Simultaneously learns data-driven class centers  
 
@@ -18,11 +17,15 @@ This design produces more discriminative decision boundaries and improves classi
 
 **4. Transformer-Based Layerwise Hypernetwork**
 We employ a Transformer-based layerwise hypernetwork, in which:
-
 - A Transformer architecture generates the parameters of Convolutional Neural Networks (CNNs) & Variable Prototypes
 - Only hypernetwork weights are shared across participants  
 
 This strategy enhances model flexibility while preserving data privacy.
+
+<p align="center">
+  <img src="./img-imbalanced_tc.png" alt="Main Diagram" width="520">
+</p>
+
 
 ## Getting started
 
