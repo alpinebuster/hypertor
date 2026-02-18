@@ -34,6 +34,7 @@ class TCPAugmentationConfig:
     target_seq_len: int = 100
     drop_seq_len: int = 3
     num_flows: int = 1
+    num_pkt_features: int = 3
 
 def make_tcp_augmentation_config():
     return TCPAugmentationConfig(
@@ -44,6 +45,7 @@ def make_tcp_augmentation_config():
         target_seq_len=FLAGS.tcp_seq_len,
         drop_seq_len=FLAGS.drop_seq_len,
         num_flows=FLAGS.num_flows,
+        num_pkt_features=FLAGS.num_pkt_features,
     )
 
 

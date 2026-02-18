@@ -32,6 +32,11 @@ flags.DEFINE_integer(
     "Number of flows.",
 )
 flags.DEFINE_integer(
+    "num_pkt_features",
+    1,
+    "Number of packet feature types per flow.",
+)
+flags.DEFINE_integer(
     "tcp_seq_len",
     30,
     "Number of packets selected per TCP flow for sequence modeling.",

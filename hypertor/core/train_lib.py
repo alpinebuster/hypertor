@@ -155,10 +155,12 @@ def _load_cache(data_config: DatasetConfig) -> Optional[dict[int, np.ndarray]]:
         )
     arr: np.ndarray = np.load(_npy_path)
     num_classes = arr.shape[0]
+    assert data_config.tcp_aug_config is not None
     data: dict[int, np.ndarray] = {
-        label: arr[label][:, :, :3, :]
+        label: arr[label][:, :, :data_config.tcp_aug_config.num_pkt_features, :]
         for label in range(num_classes)
     }
+    import pdb;pdb.set_trace()
 
     if data is None:
         logging.info(

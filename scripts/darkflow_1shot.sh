@@ -25,6 +25,6 @@ python -m hypertor.train --num_layerwise_features=8 --default_num_channels=8 \
   --warmup_steps=0 --use_variable_proto --number_of_trained_cnn_layers=0 \
   --push_start=10000 --push_warmup_steps=3000 --push_last_steps=2000 \
   --use_darkflow --flows_shape=15,30 \
-  --darknet_ratio=0.001 --num_flows=1 --tcp_seq_len=30 \
+  --darknet_ratio=0.001 --num_pkt_features=3 --num_flows=1 --tcp_seq_len=30 \
   --nosimulate_nagle --nosimulate_packet_shift --nosimulate_packet_loss \
   --gpus=0 $@
