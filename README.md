@@ -23,7 +23,7 @@ We employ a Transformer-based layerwise hypernetwork, in which:
 This strategy enhances model flexibility while preserving data privacy.
 
 <p align="center">
-  <img src="./img-imbalanced_tc.png" alt="Main Diagram" width="520">
+  <img src="./img-imbalanced_tc.png" alt="Main Diagram" width="100%">
 </p>
 
 
