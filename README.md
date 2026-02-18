@@ -137,15 +137,15 @@ echo $?
 
 The code consists of several parts:
 
-1. _Task Generator_ — uses input dataset to generate _episodes_.
-2. _Transformer IO (Input)_ — receives a support batch (typically a few samples
+1. _Task Generator_ — Uses input dataset to generate _episodes_.
+2. _Transformer IO (Input)_ — Receives a support batch (typically a few samples
    per label) and encodes it producing sample embeddings that are passed to the
    Transformer model.
-3. _Transformer_ — receives a set of input embeddings (encoding input samples)
-   and produces a set of output embeddings (containing CNN model weights).
-4. _Transformer IO (Output)_ — converts Transformer output to a list of tensors
-   that contain unstructured CNN model weights.
-5. _Model Builder_ — uses generated weight tensors to create a CNN.
+3. _Transformer_ — Receives a set of input embeddings (encoding input samples)
+   and produces a set of output embeddings (containing target model weights).
+4. _Transformer IO (Output)_ — Converts Transformer output to a list of tensors
+   that contain unstructured target model weights.
+5. _Model Builder_ — Uses generated weight tensors to create target model.
 6. _Variable Prototype Layer (VP)_ - Generates adaptable prototype representations for each class.
 7. _Prototype Logits Layer (PL)_ - Computes class predictions based on distances to the prototypes.
 
