@@ -57,14 +57,10 @@ def _build(
 
     for j, col in enumerate(all_cols):
         lists = related_df[col].apply(darkflow.parse_list_column)
-        lists = lists.apply(lambda l: _fit_list(l, target_len))
-        X[:, j, :] = np.stack(lists.to_list(), axis=0)
-
-    # [num_features, seq_len]
-    for i in range(F):
-        seq = X[i] # shape = [C, T]
+        seq = np.stack(lists.to_list(), axis=0) # shape = [C, T]
         seq_aug = simulator.augment_tcp_sequence(seq)
-        X[i] = seq_aug
+        # [num_features, seq_len]
+        X[:, j, :] = seq_aug
 
     # Normalization
     #   1) cols_small -> remains unchanged

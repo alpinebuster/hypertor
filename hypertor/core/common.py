@@ -286,7 +286,7 @@ def _calculate_loss(
     unwrapped_model: "layerwise.LayerwiseModel",
     predictions: torch.Tensor,
     add_scalar_ddp: Callable[[str, torch.Tensor], None],
-) -> torch.Tensor:
+) -> tuple[torch.Tensor, dict]:
     heads = []
     if model_config.train_heads:
         outputs = unwrapped_model.layer_outputs.values()
@@ -296,6 +296,24 @@ def _calculate_loss(
     labels = current_batch.cnn_labels.long()
     # Train accuracy
     pred_labels = torch.argmax(predictions, dim=-1) # (B,)
+
+    num_classes = predictions.size(-1)
+    def _per_class_acc(pred, labels, num_classes):
+        acc_dict = {}
+        for c in range(num_classes):
+            mask = (labels == c)
+            total = mask.sum()
+
+            if total == 0:
+                acc = torch.tensor(0.0, device=labels.device)
+            else:
+                correct = (pred[mask] == c).sum()
+                acc = correct.float() / total.float()
+
+            acc_dict[c] = acc
+
+        return acc_dict
+    acc_dict = _per_class_acc(pred_labels, labels, num_classes)
 
     def _acc(pred):
         accuracy = (pred == current_batch.cnn_labels).float().sum()
@@ -471,7 +489,7 @@ def _calculate_loss(
             add_scalar_ddp("loss/p_avg_pair_dist", p_avg_pair_dist)
 
     state.small_summaries["loss/total_loss"] = total_loss
-    return total_loss
+    return total_loss, acc_dict
 
 def train(
     train_config: TrainConfig,
@@ -622,7 +640,7 @@ def train(
                 enable_fe_dropout=True,
                 deterministic_inference=False,
             )
-            total_loss = _calculate_loss(
+            total_loss, acc_dict = _calculate_loss(
                 model_config,
                 variable_proto_config,
                 state,
@@ -631,6 +649,14 @@ def train(
                 predictions,
                 add_scalar_ddp,
             )
+            if (
+                (state.global_step-start_step) % 100 == 1 and
+                (not FLAGS.use_ddp or global_rank == 0)
+            ):
+                per_class_acc_msg = " | ".join(
+                    [f"class_{k}: {v.item():.4f}" for k, v in acc_dict.items()]
+                )
+                logging.info(f"{util.get_ddp_msg()} per_class_acc: {per_class_acc_msg}\n")
 
         # if not model_config.use_variable_proto:
         state.optimizer.zero_grad()
@@ -725,7 +751,7 @@ def train(
                             enable_fe_dropout=True,
                             deterministic_inference=False,
                         )
-                        lastp_total_loss = _calculate_loss(
+                        lastp_total_loss, lastp_acc_dict = _calculate_loss(
                             model_config,
                             variable_proto_config,
                             state,
@@ -734,6 +760,14 @@ def train(
                             lastp_predictions,
                             add_scalar_ddp,
                         )
+                        if (
+                            (state.global_step-start_step) % 100 == 1 and
+                            (not FLAGS.use_ddp or global_rank == 0)
+                        ):
+                            lastp_per_class_acc_msg = " | ".join(
+                                [f"class_{k}: {v.item():.4f}" for k, v in lastp_acc_dict.items()]
+                            )
+                            logging.info(f"{util.get_ddp_msg()} lastp_per_class_acc: {lastp_per_class_acc_msg}\n")
 
                         state.optimizer.zero_grad()
                         lastp_total_loss.backward()
