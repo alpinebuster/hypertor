@@ -319,7 +319,6 @@ class TCPSequenceSimulator:
         if seq is None or seq.size == 0:
             raise ValueError("Input sequence is empty or None")
         _data = seq.copy()
-        # import pdb;pdb.set_trace()
 
         # The priority order is: 
         #    → RTO timeout retransmission

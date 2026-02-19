@@ -1,8 +1,11 @@
 # %%
+import argparse
+import functools
 import os
 import glob
 import ipaddress
 import itertools
+import multiprocessing as mp
 from pathlib import Path
 
 import numpy as np
@@ -12,14 +15,6 @@ import hypertor.aug.tcp as tcp_aug
 from hypertor.aug import darkflow
 
 # %%
-current_file = Path(__file__).resolve()
-current_dir = current_file.parent
-hypertor_data_path = (current_dir / "../../data").resolve()
-print("current_file:", current_file)
-print("current_dir:", current_dir)
-print("hypertor_data_path:", hypertor_data_path)
-
-
 def normalize_flow_key(src_ip, src_port, dst_ip, dst_port):
     ip1 = int(ipaddress.ip_address(src_ip))
     ip2 = int(ipaddress.ip_address(dst_ip))
@@ -36,52 +31,61 @@ def normalize_flow_key(src_ip, src_port, dst_ip, dst_port):
 # %%
 def _build(
     simulator: "tcp_aug.TCPSequenceSimulator",
-    related_df,
+    related_df: pd.DataFrame,
     all_cols,
     target_len,
 ):
     cols_numeric = ['tcp_window_seq', 'pkt_len_seq']
     cols_large = ['ttl_seq', 'pkt_usec_seq']
-
-    C = len(all_cols)
     F = len(related_df)
 
-    X = np.zeros((F, C, target_len), dtype=np.float32)
+    X_aug_list = []
+    for i in range(F):
+        feature_list = []
 
-    def _fit_list(lst, target_len):
-        if len(lst) < target_len:
-            lst = lst + [0] * (target_len - len(lst))
+        for col in all_cols:
+            seq_col = darkflow.parse_list_column(related_df.iloc[i][col])
+            feature_list.append(seq_col)
+
+        if len(feature_list[0]) >= 3:
+            # shape = [C, T_var]
+            seq = np.stack(feature_list, axis=0)
+            seq_aug = simulator.augment_tcp_sequence(seq)
+            X_aug_list.append(seq_aug)
         else:
-            lst = lst[:target_len]
-        return lst
+            padded_features = []
+            for f in feature_list:
+                fseq = np.array(f, dtype=np.float32)
+                pad_len = target_len - len(fseq)
+                if pad_len > 0:
+                    fseq = np.pad(fseq, (0, pad_len), mode='constant', constant_values=0)
+                padded_features.append(fseq)
 
-    for j, col in enumerate(all_cols):
-        lists = related_df[col].apply(darkflow.parse_list_column)
-        seq = np.stack(lists.to_list(), axis=0) # shape = [C, T]
-        seq_aug = simulator.augment_tcp_sequence(seq)
-        # [num_features, seq_len]
-        X[:, j, :] = seq_aug
+            seq_aug = np.stack(padded_features, axis=0)  # [C, target_len]
+            X_aug_list.append(seq_aug)
+
+    X_aug = np.stack(X_aug_list, axis=0)  # [F, C, target_len]
 
     # Normalization
     #   1) cols_small -> remains unchanged
     #   2) cols_numeric -> min-max
     #   3) cols_large -> log + min-max
     idx_numeric = [all_cols.index(c) for c in cols_numeric]
-    X[:, idx_numeric, :] = darkflow.min_max_normalize_np(X[:, idx_numeric, :])
+    X_aug[:, idx_numeric, :] = darkflow.min_max_normalize_np(X_aug[:, idx_numeric, :])
 
     idx_large = [all_cols.index(c) for c in cols_large]
-    X[:, idx_large, :] = darkflow.log_min_max_normalize_np(X[:, idx_large, :])
+    X_aug[:, idx_large, :] = darkflow.log_min_max_normalize_np(X_aug[:, idx_large, :])
 
     # Apply direction to other per-packet features
     dir_idx = all_cols.index('pkt_dir_seq')
     # shape: [C, T]
-    direction = X[:, dir_idx, :]
+    direction = X_aug[:, dir_idx, :]
     for j, col in enumerate(all_cols):
         if col == 'pkt_dir_seq':
             continue
-        X[:, j, :] = X[:, j, :]*direction
+        X_aug[:, j, :] = X_aug[:, j, :]*direction
 
-    return X  # [F, C, T]
+    return X_aug  # [F, C, T]
 
 def _find_related_flows(
     aug_config: "tcp_aug.TCPAugmentationConfig",
@@ -376,18 +380,15 @@ def build_sim_flags(sim_name: str):
 #    ...
 
 
-# %%
-RATIO = 0.001
-
 # %% [markdown]
 # TCUB
 
 # %%
-def _exp_tcub(aug_config: "tcp_aug.TCPAugmentationConfig"):
+def _exp_tcub(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
     # csv -> pd -> numpy[all_classes, all_samples, F, C, T]
-    tcub_dataset_5d, (tcub_dataset_max_5d, tcub_class_counts) = csv2numpy(aug_config, "tcub", RATIO)
+    tcub_dataset_5d, (tcub_dataset_max_5d, tcub_class_counts) = csv2numpy(aug_config, "tcub", ratio)
 
-    tcub_cache_path = os.path.join(hypertor_data_path, "tcub", "cache", f"ratio_{RATIO}")
+    tcub_cache_path = os.path.join(hypertor_data_path, "tcub", "cache", f"ratio_{ratio}")
     if not os.path.exists(tcub_cache_path):
         os.makedirs(tcub_cache_path, exist_ok=True)
     sim_name = get_sim_name(aug_config)
@@ -426,7 +427,7 @@ def _exp_tcub(aug_config: "tcp_aug.TCPAugmentationConfig"):
 
 
 # flows: [1,3,6,9], sim: [none, nagle, shift, loss, all], seq_len: [30, 60, 90]
-def run_tcub_exp(num_flows, sim_name, seq_len, seed=2026):
+def run_tcub_exp(num_flows, sim_name, seq_len, ratio, seed=2026):
     sim_flags = build_sim_flags(sim_name)
 
     tcub_aug_config = tcp_aug.TCPAugmentationConfig(
@@ -437,29 +438,34 @@ def run_tcub_exp(num_flows, sim_name, seq_len, seed=2026):
         seed=seed,
     )
 
-    print(f"Running tcub exp: ratio={RATIO}, flows={num_flows}, sim={sim_name}, len={seq_len}, seed={seed}")
-    _exp_tcub(tcub_aug_config)
+    print(f"Running tcub exp: ratio={ratio}, flows={num_flows}, sim={sim_name}, len={seq_len}, seed={seed}")
+    _exp_tcub(tcub_aug_config, ratio)
 
-def exp_tcub_flows():
+def exp_tcub_flows(ratio, seed):
     flows = [1, 3, 6, 9]
     sims = ["none", "nagle", "shift", "loss", "all"]
     seq_lens = [30, 60, 90]
 
+    run_tcub_exp_partial = functools.partial(
+        run_tcub_exp,
+        ratio=ratio,
+        seed=seed,
+    )
     for f, s, l in itertools.product(flows, sims, seq_lens):
-        run_tcub_exp(f, s, l)
+        run_tcub_exp_partial(f, s, l)
 
-exp_tcub_flows()
+# exp_tcub_flows()
 
 
 # %% [markdown]
 # CICDarknet
 
 # %%
-def _exp_cicdarknet(aug_config: "tcp_aug.TCPAugmentationConfig"):
+def _exp_cicdarknet(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
     # csv -> pd -> numpy[all_classes, all_samples, F, C, T]
-    cic_dataset_5d, (cic_dataset_max_5d, cic_class_counts) = csv2numpy(aug_config, "cicdarknet", RATIO)
+    cic_dataset_5d, (cic_dataset_max_5d, cic_class_counts) = csv2numpy(aug_config, "cicdarknet", ratio)
 
-    cic_cache_path = os.path.join(hypertor_data_path, "cicdarknet", "cache", f"ratio_{RATIO}")
+    cic_cache_path = os.path.join(hypertor_data_path, "cicdarknet", "cache", f"ratio_{ratio}")
     if not os.path.exists(cic_cache_path):
         os.makedirs(cic_cache_path, exist_ok=True)
     sim_name = get_sim_name(aug_config)
@@ -498,7 +504,7 @@ def _exp_cicdarknet(aug_config: "tcp_aug.TCPAugmentationConfig"):
 
 
 # flows: [1], sim: [none, nagle, shift, loss, all], seq_len: [30, 60, 90]
-def run_cic_exp(num_flows, sim_name, seq_len, seed=2026):
+def run_cic_exp(num_flows, sim_name, seq_len, ratio, seed=2026):
     sim_flags = build_sim_flags(sim_name)
 
     cic_aug_config = tcp_aug.TCPAugmentationConfig(
@@ -509,18 +515,66 @@ def run_cic_exp(num_flows, sim_name, seq_len, seed=2026):
         seed=seed,
     )
 
-    print(f"\nRunning cicdarknet exp: ratio={RATIO}, flows={num_flows}, sim={sim_name}, len={seq_len}, seed={seed}")
-    _exp_cicdarknet(cic_aug_config)
+    print(f"\nRunning cicdarknet exp: ratio={ratio}, flows={num_flows}, sim={sim_name}, len={seq_len}, seed={seed}")
+    _exp_cicdarknet(cic_aug_config, ratio)
 
-def exp_cic_flows():
+def exp_cic_flows(ratio, seed=2026):
     flows = [1]
     sims = ["none", "nagle", "shift", "loss", "all"]
     seq_lens = [30, 60, 90]
 
+    run_cic_exp_partial = functools.partial(
+        run_cic_exp,
+        ratio=ratio,
+        seed=seed,
+    )
     for f, s, l in itertools.product(flows, sims, seq_lens):
-        run_cic_exp(f, s, l)
+        run_cic_exp_partial(f, s, l)
 
-exp_cic_flows()
+# exp_cic_flows()
 
 
 # %%
+def parse_args():
+    parser = argparse.ArgumentParser(description="Experiment Config")
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        required=True,
+        help="Dataset name (e.g., tcub, cicdarknet)"
+    )
+    parser.add_argument(
+        "--ratio",
+        type=float,
+        required=True,
+        help="Dataset ratio (e.g., 0.001, 0.00001)"
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        required=True,
+        help="Random seed (2015-2026)"
+    )
+    return parser.parse_args()
+
+# %%
+if __name__ == "__main__":
+    args = parse_args()
+    DATASET: str = args.dataset
+    RATIO: float = args.ratio
+    SEED: int = args.seed
+    print(f"Dataset: {DATASET}, Ratio: {RATIO}, Seed: {SEED}")
+
+    current_file = Path(__file__).resolve()
+    current_dir = current_file.parent
+    hypertor_data_path = (current_dir / "../../data").resolve()
+    print("current_file:", current_file)
+    print("current_dir:", current_dir)
+    print("hypertor_data_path:", hypertor_data_path)
+
+    if DATASET.lower() == "cicdarknet":
+        exp_cic_flows(RATIO, SEED)
+    elif DATASET.lower() == "tcub":
+        exp_tcub_flows(RATIO, SEED)
+    else:
+        raise RuntimeError("Wrong dataset!")
