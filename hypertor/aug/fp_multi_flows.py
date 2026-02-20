@@ -586,9 +586,6 @@ def run_experiment(dataset, ratio, seed):
         exp_cic_flows(ratio, seed)
     elif dataset.lower() == "tcub":
         exp_tcub_flows(ratio, seed)
-    elif dataset.lower() == "all":
-        exp_cic_flows(ratio, seed)
-        exp_tcub_flows(ratio, seed)
     else:
         raise RuntimeError("Wrong dataset!")
 
@@ -598,9 +595,7 @@ if __name__ == "__main__":
     DATASET: str = args.dataset
     RATIO: float = args.ratio
     SEEDS = parse_seed(args.seed)
-    cpus = os.cpu_count()
-    if cpus is None:
-        cpus = 1
+    cpus = os.cpu_count() or 1
     log(f"Total {cpus} CPUs")
     log(f"Dataset: {DATASET}, Ratio: {RATIO}, Seeds: {SEEDS}")
 
@@ -614,12 +609,20 @@ if __name__ == "__main__":
     # run_experiment(DATASET, RATIO, 2026)
 
     # If `max_workers` is not specified, it defaults to the number of CPU cores
-    with ProcessPoolExecutor(max_workers=min(len(SEEDS), cpus)) as executor:
+    tasks = []
+    if DATASET.lower() == "all":
+        datasets = ["cicdarknet", "tcub"]
+    else:
+        datasets = [DATASET]
+    for seed in SEEDS:
+        for ds in datasets:
+            tasks.append((ds, RATIO, seed))
+
+    with ProcessPoolExecutor(max_workers=min(len(tasks), cpus-1)) as executor:
         futures = [
-            executor.submit(run_experiment, DATASET, RATIO, seed)
-            for seed in SEEDS
+            executor.submit(run_experiment, ds, ratio, seed)
+            for ds, ratio, seed in tasks
         ]
 
-        # Wait for all tasks to complete
         for future in futures:
             future.result()
