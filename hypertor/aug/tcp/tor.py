@@ -3,7 +3,7 @@ import dataclasses
 import os
 import functools
 
-from typing import Optional
+from typing import Optional, Union
 
 from absl import app, flags, logging
 import pandas as pd
@@ -380,7 +380,7 @@ if __name__ == "__main__":
         "max_rtt": 0.011,
         "target_seq_len": 30,
     }
-    config = TCPAugmentationConfig(seed=None, **args)
+    config = TCPAugmentationConfig(seed=None, **args) # type: ignore
     simulator = TCPSequenceSimulator(config, features)
     assert simulator.data is not None
     res = simulator.augment_tcp_sequence(simulator.data[0])

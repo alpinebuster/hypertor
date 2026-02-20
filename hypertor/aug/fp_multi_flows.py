@@ -20,6 +20,9 @@ from hypertor.aug import darkflow
 def now():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+def log(msg):
+    print(f"[{now()}][PID {os.getpid()}] {msg}", flush=True)
+
 def normalize_flow_key(src_ip, src_port, dst_ip, dst_port):
     ip1 = int(ipaddress.ip_address(src_ip))
     ip2 = int(ipaddress.ip_address(dst_ip))
@@ -55,6 +58,8 @@ def _build(
         if len(feature_list[0]) >= 3:
             # shape = [C, T_var]
             seq = np.stack(feature_list, axis=0)
+            if seq.shape[1] > target_len:
+                seq = seq[:, :target_len]
             seq_aug = simulator.augment_tcp_sequence(seq)
             X_aug_list.append(seq_aug)
         else:
@@ -109,17 +114,17 @@ def _find_related_flows(
 
     # import pdb
     # pdb.set_trace()
-    # print(f"ja4: {row.ja4}, ja4t: {row.ja4t}, ja4l: {row.ja4l}")
-    # print(f"\nja4t: {fp_df[fp_df["ja4t"] == row.ja4t].shape}")
-    # print(f"\nja4: {fp_df[fp_df["ja4"] == row.ja4].shape}")
-    # print(f"\nja4_1: {fp_df[fp_df["ja4_1"] == row.ja4_1].shape}")
-    # print(f"\nja4_3: {fp_df[fp_df["ja4_3"] == row.ja4_3].shape}")
-    # print(f"\nja4l: {fp_df[fp_df["ja4l"] == row.ja4l].shape}")
-    # print(f"\nja4l_1: {fp_df[fp_df["ja4l_1"] == row.ja4l_1].shape}")
-    # print(f"\nja4l_2: {fp_df[fp_df["ja4l_2"] == row.ja4l_2].shape}")
+    # log(f"ja4: {row.ja4}, ja4t: {row.ja4t}, ja4l: {row.ja4l}")
+    # log(f"\nja4t: {fp_df[fp_df["ja4t"] == row.ja4t].shape}")
+    # log(f"\nja4: {fp_df[fp_df["ja4"] == row.ja4].shape}")
+    # log(f"\nja4_1: {fp_df[fp_df["ja4_1"] == row.ja4_1].shape}")
+    # log(f"\nja4_3: {fp_df[fp_df["ja4_3"] == row.ja4_3].shape}")
+    # log(f"\nja4l: {fp_df[fp_df["ja4l"] == row.ja4l].shape}")
+    # log(f"\nja4l_1: {fp_df[fp_df["ja4l_1"] == row.ja4l_1].shape}")
+    # log(f"\nja4l_2: {fp_df[fp_df["ja4l_2"] == row.ja4l_2].shape}")
 
-    # print(f"\nja4l_1: {fp_df[fp_df["ja4l_1"] == row.ja4l_1]["ja4l"]}")
-    # print(f"\nja4l_2: {fp_df[fp_df["ja4l_2"] == row.ja4l_2]["ja4l"]}")
+    # log(f"\nja4l_1: {fp_df[fp_df["ja4l_1"] == row.ja4l_1]["ja4l"]}")
+    # log(f"\nja4l_2: {fp_df[fp_df["ja4l_2"] == row.ja4l_2]["ja4l"]}")
 
     # -------- Level 1 --------
     level1 = fp_df[
@@ -129,7 +134,7 @@ def _find_related_flows(
     ]
     if len(level1) >= aug_config.num_flows:
         return _attach_and_trim(level1)
-    # print(f"level1: {level1.shape}")
+    # log(f"level1: {level1.shape}")
 
     # -------- Level 2 --------
     level2 = fp_df[
@@ -138,7 +143,7 @@ def _find_related_flows(
         (fp_df["ja4_3"] == row.ja4_3) &
         (fp_df["ja4l_2"] == row.ja4l_2)
     ].copy()
-    # print(f"level2: {level2.shape}")
+    # log(f"level2: {level2.shape}")
 
     if len(level2) > 0:
         if pd.isna(row.ja4l_1):
@@ -158,7 +163,7 @@ def _find_related_flows(
         (fp_df["ja4_1"] == row.ja4_1) &
         (fp_df["ja4_3"] == row.ja4_3)
     ].copy()
-    # print(f"level3: {level3.shape}")
+    # log(f"level3: {level3.shape}")
 
     if len(level3) > 0:
         if pd.isna(row.ja4l_2):
@@ -186,7 +191,7 @@ def _find_related_flows(
         (fp_df["ja4t"] == row.ja4t) &
         ((fp_df["ja4_1"] == row.ja4_1) | (fp_df["ja4_3"] == row.ja4_3))
     ].copy()
-    # print(f"level4: {level4.shape}")
+    # log(f"level4: {level4.shape}")
 
     if len(level4) > 0:
         if pd.isna(row.ja4l_1):
@@ -222,7 +227,7 @@ def build_flows(
         related_df = _find_related_flows(aug_config, fp_df, row)
     else:
         related_df = pd.DataFrame([row])  # To DataFrame
-    # print(f"related_df: {related_df}")
+    # log(f"related_df: {related_df}")
 
     X = _build(
         simulator,
@@ -252,18 +257,18 @@ def build_dataset(
 ):
     classes: list = sorted(df.label.unique())
     class_to_idx = {c: i for i, c in enumerate(classes)}
-    print(f"[{now()}] class_to_idx: {class_to_idx}")
+    log(f"class_to_idx: {class_to_idx}")
 
     # [all_classes, samples_per_class, F, C, T]
     all_data: list[list] = [[] for _ in classes]
     for i, row in enumerate(df.itertuples(index=False), 1):
-        print(f"[{now()}] [{i}/{len(df)}] label={row.label}, flow_key={row.flow_key}")
+        log(f"[{i}/{len(df)}] label={row.label}, flow_key={row.flow_key}")
         label = row.label
         cls_idx = class_to_idx[label]
 
         # X shape = [F, C, T]
         X = build_flows(simulator, row, fp_df, all_cols, aug_config)
-        # print(f"X: {X.shape}")
+        # log(f"X: {X.shape}")
         all_data[cls_idx].append(X)
 
     F = aug_config.num_flows
@@ -281,7 +286,7 @@ def build_dataset(
 
     class_counts = {}
     for cls_idx, d in enumerate(all_data_np):
-        print(f"[{now()}] class {classes[cls_idx]}(id {cls_idx}): {d.shape[0]} samples")
+        log(f"class {classes[cls_idx]}(id {cls_idx}): {d.shape[0]} samples")
         dataset[cls_idx] = d[:min_samples]
         dataset_max[cls_idx, :d.shape[0]] = d
         class_counts[classes[cls_idx]] = d.shape[0]
@@ -340,8 +345,8 @@ def csv2numpy(
 
     # [all_classes, all_samples, F, C, T]
     dataset_5d, (dataset_max_5d, class_counts) = build_dataset(simulator, df, fp_df, all_cols, aug_config)
-    print(f"[{now()}] {dataset_5d.shape}")
-    print(f"[{now()}] {dataset_max_5d.shape}")
+    log(f"{dataset_5d.shape}")
+    log(f"{dataset_max_5d.shape}")
     return dataset_5d, (dataset_max_5d, class_counts)
 
 def get_sim_name(cfg: "tcp_aug.TCPAugmentationConfig") -> str:
@@ -443,7 +448,7 @@ def run_tcub_exp(num_flows, sim_name, seq_len, ratio, seed=2026):
         seed=seed,
     )
 
-    print(f"[{now()}] Running tcub exp: ratio={ratio}, flows={num_flows}, sim={sim_name}, len={seq_len}, seed={seed}")
+    log(f"Running tcub exp: ratio={ratio}, flows={num_flows}, sim={sim_name}, len={seq_len}, seed={seed}")
     _exp_tcub(tcub_aug_config, ratio)
 
 def exp_tcub_flows(ratio, seed):
@@ -520,7 +525,7 @@ def run_cic_exp(num_flows, sim_name, seq_len, ratio, seed=2026):
         seed=seed,
     )
 
-    print(f"\n[{now()}] Running cicdarknet exp: ratio={ratio}, flows={num_flows}, sim={sim_name}, len={seq_len}, seed={seed}")
+    log(f"Running cicdarknet exp: ratio={ratio}, flows={num_flows}, sim={sim_name}, len={seq_len}, seed={seed}")
     _exp_cicdarknet(cic_aug_config, ratio)
 
 def exp_cic_flows(ratio, seed=2026):
@@ -545,19 +550,19 @@ def parse_args():
     parser.add_argument(
         "--dataset",
         type=str,
-        required=True,
+        default="all",
         help="Dataset name (e.g., tcub, cicdarknet and all)"
     )
     parser.add_argument(
         "--ratio",
         type=float,
-        required=True,
+        default=0.00001,
         help="Dataset ratio (e.g., 0.001, 0.00001)"
     )
     parser.add_argument(
         "--seed",
         type=str,
-        required=True,
+        default="2015-2026",
         help="Random seed (2015, 2015-2026)"
     )
     return parser.parse_args()
@@ -575,7 +580,7 @@ def parse_seed(seed_str: str):
         return [int(seed_str)]
 
 def run_experiment(dataset, ratio, seed):
-    print(f"\n[{now()}] Dataset: {dataset}, Ratio: {ratio}, Seed: {seed}")
+    log(f"\nDataset: {dataset}, Ratio: {ratio}, Seed: {seed}")
 
     if dataset.lower() == "cicdarknet":
         exp_cic_flows(ratio, seed)
@@ -596,15 +601,17 @@ if __name__ == "__main__":
     cpus = os.cpu_count()
     if cpus is None:
         cpus = 1
-    print(f"[{now()}] Total {cpus} CPUs")
-    print(f"[{now()}] Dataset: {DATASET}, Ratio: {RATIO}, Seeds: {SEEDS}")
+    log(f"Total {cpus} CPUs")
+    log(f"Dataset: {DATASET}, Ratio: {RATIO}, Seeds: {SEEDS}")
 
     current_file = Path(__file__).resolve()
     current_dir = current_file.parent
     hypertor_data_path = (current_dir / "../../data").resolve()
-    print(f"[{now()}] current_file: {current_file}")
-    print(f"[{now()}] current_dir: {current_dir}")
-    print(f"[{now()}] hypertor_data_path: {hypertor_data_path}")
+    log(f"current_file: {current_file}")
+    log(f"current_dir: {current_dir}")
+    log(f"hypertor_data_path: {hypertor_data_path}")
+
+    # run_experiment(DATASET, RATIO, 2026)
 
     # If `max_workers` is not specified, it defaults to the number of CPU cores
     with ProcessPoolExecutor(max_workers=min(len(SEEDS), cpus)) as executor:

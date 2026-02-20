@@ -48,4 +48,6 @@ Run from `hypertor` project's root dir
 cd ./hypertor/aug/
 nohup python ./fp_multi_flows.py --dataset tcub --ratio 0.00001 --seed 2026 > fp_multi_flows_tcub_1e-05_seed_2026.log 2>&1 &
 nohup python ./fp_multi_flows.py --dataset all --ratio 0.00001 --seed "2015-2026" > fp_multi_flows_1e-05.log 2>&1 &
+
+pkill -f fp_multi_flows.py
 ```
