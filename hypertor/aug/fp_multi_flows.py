@@ -1,5 +1,7 @@
 # %%
 import argparse
+from concurrent.futures import ProcessPoolExecutor
+from datetime import datetime
 import functools
 import os
 import glob
@@ -15,6 +17,9 @@ import hypertor.aug.tcp as tcp_aug
 from hypertor.aug import darkflow
 
 # %%
+def now():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
 def normalize_flow_key(src_ip, src_port, dst_ip, dst_port):
     ip1 = int(ipaddress.ip_address(src_ip))
     ip2 = int(ipaddress.ip_address(dst_ip))
@@ -247,12 +252,12 @@ def build_dataset(
 ):
     classes: list = sorted(df.label.unique())
     class_to_idx = {c: i for i, c in enumerate(classes)}
-    print(f"class_to_idx: {class_to_idx}")
+    print(f"[{now()}] class_to_idx: {class_to_idx}")
 
     # [all_classes, samples_per_class, F, C, T]
     all_data: list[list] = [[] for _ in classes]
     for i, row in enumerate(df.itertuples(index=False), 1):
-        print(f"[{i}/{len(df)}] label={row.label}, flow_key={row.flow_key}")
+        print(f"[{now()}] [{i}/{len(df)}] label={row.label}, flow_key={row.flow_key}")
         label = row.label
         cls_idx = class_to_idx[label]
 
@@ -276,7 +281,7 @@ def build_dataset(
 
     class_counts = {}
     for cls_idx, d in enumerate(all_data_np):
-        print(f"class {classes[cls_idx]}(id {cls_idx}): {d.shape[0]} samples")
+        print(f"[{now()}] class {classes[cls_idx]}(id {cls_idx}): {d.shape[0]} samples")
         dataset[cls_idx] = d[:min_samples]
         dataset_max[cls_idx, :d.shape[0]] = d
         class_counts[classes[cls_idx]] = d.shape[0]
@@ -335,8 +340,8 @@ def csv2numpy(
 
     # [all_classes, all_samples, F, C, T]
     dataset_5d, (dataset_max_5d, class_counts) = build_dataset(simulator, df, fp_df, all_cols, aug_config)
-    print(dataset_5d.shape)
-    print(dataset_max_5d.shape)
+    print(f"[{now()}] {dataset_5d.shape}")
+    print(f"[{now()}] {dataset_max_5d.shape}")
     return dataset_5d, (dataset_max_5d, class_counts)
 
 def get_sim_name(cfg: "tcp_aug.TCPAugmentationConfig") -> str:
@@ -438,7 +443,7 @@ def run_tcub_exp(num_flows, sim_name, seq_len, ratio, seed=2026):
         seed=seed,
     )
 
-    print(f"Running tcub exp: ratio={ratio}, flows={num_flows}, sim={sim_name}, len={seq_len}, seed={seed}")
+    print(f"[{now()}] Running tcub exp: ratio={ratio}, flows={num_flows}, sim={sim_name}, len={seq_len}, seed={seed}")
     _exp_tcub(tcub_aug_config, ratio)
 
 def exp_tcub_flows(ratio, seed):
@@ -515,7 +520,7 @@ def run_cic_exp(num_flows, sim_name, seq_len, ratio, seed=2026):
         seed=seed,
     )
 
-    print(f"\nRunning cicdarknet exp: ratio={ratio}, flows={num_flows}, sim={sim_name}, len={seq_len}, seed={seed}")
+    print(f"\n[{now()}] Running cicdarknet exp: ratio={ratio}, flows={num_flows}, sim={sim_name}, len={seq_len}, seed={seed}")
     _exp_cicdarknet(cic_aug_config, ratio)
 
 def exp_cic_flows(ratio, seed=2026):
@@ -541,7 +546,7 @@ def parse_args():
         "--dataset",
         type=str,
         required=True,
-        help="Dataset name (e.g., tcub, cicdarknet)"
+        help="Dataset name (e.g., tcub, cicdarknet and all)"
     )
     parser.add_argument(
         "--ratio",
@@ -551,30 +556,63 @@ def parse_args():
     )
     parser.add_argument(
         "--seed",
-        type=int,
+        type=str,
         required=True,
-        help="Random seed (2015-2026)"
+        help="Random seed (2015, 2015-2026)"
     )
     return parser.parse_args()
+
+def parse_seed(seed_str: str):
+    """
+        1) 2020
+        2) 2015-2026
+    """
+    if "-" in seed_str:
+        _start, _end = seed_str.split("-")
+        start, end = int(_start), int(_end)
+        return list(range(start, end + 1))  # Including end
+    else:
+        return [int(seed_str)]
+
+def run_experiment(dataset, ratio, seed):
+    print(f"\n[{now()}] Dataset: {dataset}, Ratio: {ratio}, Seed: {seed}")
+
+    if dataset.lower() == "cicdarknet":
+        exp_cic_flows(ratio, seed)
+    elif dataset.lower() == "tcub":
+        exp_tcub_flows(ratio, seed)
+    elif dataset.lower() == "all":
+        exp_cic_flows(ratio, seed)
+        exp_tcub_flows(ratio, seed)
+    else:
+        raise RuntimeError("Wrong dataset!")
 
 # %%
 if __name__ == "__main__":
     args = parse_args()
     DATASET: str = args.dataset
     RATIO: float = args.ratio
-    SEED: int = args.seed
-    print(f"Dataset: {DATASET}, Ratio: {RATIO}, Seed: {SEED}")
+    SEEDS = parse_seed(args.seed)
+    cpus = os.cpu_count()
+    if cpus is None:
+        cpus = 1
+    print(f"[{now()}] Total {cpus} CPUs")
+    print(f"[{now()}] Dataset: {DATASET}, Ratio: {RATIO}, Seeds: {SEEDS}")
 
     current_file = Path(__file__).resolve()
     current_dir = current_file.parent
     hypertor_data_path = (current_dir / "../../data").resolve()
-    print("current_file:", current_file)
-    print("current_dir:", current_dir)
-    print("hypertor_data_path:", hypertor_data_path)
+    print(f"[{now()}] current_file: {current_file}")
+    print(f"[{now()}] current_dir: {current_dir}")
+    print(f"[{now()}] hypertor_data_path: {hypertor_data_path}")
 
-    if DATASET.lower() == "cicdarknet":
-        exp_cic_flows(RATIO, SEED)
-    elif DATASET.lower() == "tcub":
-        exp_tcub_flows(RATIO, SEED)
-    else:
-        raise RuntimeError("Wrong dataset!")
+    # If `max_workers` is not specified, it defaults to the number of CPU cores
+    with ProcessPoolExecutor(max_workers=min(len(SEEDS), cpus)) as executor:
+        futures = [
+            executor.submit(run_experiment, DATASET, RATIO, seed)
+            for seed in SEEDS
+        ]
+
+        # Wait for all tasks to complete
+        for future in futures:
+            future.result()

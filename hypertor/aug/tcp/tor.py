@@ -24,7 +24,7 @@ class TCPAugmentationConfig:
 
     # random.random() > random.random()*max_rate
     # X ~ Uniform(a, b) -> E[X]=(a+b)/2 -> E[X]=E[X]/2
-    max_rate: float = 0.404
+    max_rate: float = 0.365 # 0.404
     max_rtt: float = 0.011 # seconds
     mss: int = 1460
     seed: Optional[int] = None
@@ -372,8 +372,8 @@ if __name__ == "__main__":
     ])
     features = np.stack([base_features, base_features+1000], axis=0)
     args = {
-        "simulate_nagle": False,
-        "simulate_packet_shift": True,
+        "simulate_nagle": True,
+        "simulate_packet_shift": False,
         "simulate_packet_loss": False,
         # "simulate_packet_duplication": True,
         "max_rate": 0.404,
