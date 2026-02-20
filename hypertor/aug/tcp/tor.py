@@ -24,7 +24,7 @@ class TCPAugmentationConfig:
 
     # random.random() > random.random()*max_rate
     # X ~ Uniform(a, b) -> E[X]=(a+b)/2 -> E[X]=E[X]/2
-    max_rate: float = 0.404
+    max_rate: float = 0.101 # 404
     max_rtt: float = 0.011 # seconds
     mss: int = 1460
     seed: Optional[int] = None
@@ -360,3 +360,25 @@ class TCPSequenceSimulator:
             seq_x = np.pad(seq_x, pad_width=pad_width, mode='constant', constant_values=0)
 
         return seq_x
+
+
+if __name__ == "__main__":
+    base_features = np.array([
+        [1, -1, 1, 1, 1, 1, -1], # pkt_dir_seq
+        [1200, 1190, 1180, 1170, 1160, 1150, 1140], # pkt_len_seq
+        [0, 115135, 115158, 115177, 115359, 233595, 233616], # pkt_usec_seq
+        # ...
+    ])
+    features = np.stack([base_features, base_features+1000], axis=0)
+    args = {
+        "simulate_nagle": False,
+        "simulate_packet_shift": True,
+        "simulate_packet_loss": False,
+        "simulate_packet_duplication": False,
+        "max_rate": 0.202,
+        "max_rtt": 0.011,
+        "target_seq_len": 30,
+    },
+    config = TCPAugmentationConfig(seed=None, **args)
+    simulator =  TCPSequenceSimulator(config, features)
+    res = simulator.augment_tcp_sequence(simulator.data[0])
