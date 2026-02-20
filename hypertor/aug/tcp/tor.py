@@ -24,7 +24,7 @@ class TCPAugmentationConfig:
 
     # random.random() > random.random()*max_rate
     # X ~ Uniform(a, b) -> E[X]=(a+b)/2 -> E[X]=E[X]/2
-    max_rate: float = 0.101 # 404
+    max_rate: float = 0.404
     max_rtt: float = 0.011 # seconds
     mss: int = 1460
     seed: Optional[int] = None
@@ -223,7 +223,8 @@ class TCPSequenceSimulator:
         # Always keep the first packet
         res.append(seq_t.pop(0))
 
-        loss_rate = random.random() * self.max_rate
+        # NOTE: (self.max_rate/2)
+        loss_rate = random.random() * (self.max_rate)
         for pkt in seq_t:
             if random.random() > loss_rate:
                 # Packet survives
@@ -374,11 +375,14 @@ if __name__ == "__main__":
         "simulate_nagle": False,
         "simulate_packet_shift": True,
         "simulate_packet_loss": False,
-        "simulate_packet_duplication": False,
-        "max_rate": 0.202,
+        # "simulate_packet_duplication": True,
+        "max_rate": 0.404,
         "max_rtt": 0.011,
         "target_seq_len": 30,
-    },
+    }
     config = TCPAugmentationConfig(seed=None, **args)
-    simulator =  TCPSequenceSimulator(config, features)
+    simulator = TCPSequenceSimulator(config, features)
+    assert simulator.data is not None
     res = simulator.augment_tcp_sequence(simulator.data[0])
+    print(f"simulator.data[0]: {simulator.data[0]}")
+    print(f"res: {res}")
