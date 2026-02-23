@@ -398,7 +398,7 @@ def _exp_tcub(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
     # csv -> pd -> numpy[all_classes, all_samples, F, C, T]
     tcub_dataset_5d, (tcub_dataset_max_5d, tcub_class_counts) = csv2numpy(aug_config, "tcub", ratio)
 
-    tcub_cache_path = os.path.join(hypertor_data_path, "tcub", "cache", f"ratio_{ratio}")
+    tcub_cache_path = os.path.join(hypertor_data_path, "tcub", "cache_max_rate_0.165", f"ratio_{ratio}")
     if not os.path.exists(tcub_cache_path):
         os.makedirs(tcub_cache_path, exist_ok=True)
     sim_name = get_sim_name(aug_config)
@@ -446,6 +446,7 @@ def run_tcub_exp(num_flows, sim_name, seq_len, ratio, seed=2026):
         drop_seq_len=3,
         num_flows=num_flows,
         seed=seed,
+        max_rate=0.165,
     )
 
     log(f"Running tcub exp: ratio={ratio}, flows={num_flows}, sim={sim_name}, len={seq_len}, seed={seed}")
@@ -475,7 +476,7 @@ def _exp_cicdarknet(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
     # csv -> pd -> numpy[all_classes, all_samples, F, C, T]
     cic_dataset_5d, (cic_dataset_max_5d, cic_class_counts) = csv2numpy(aug_config, "cicdarknet", ratio)
 
-    cic_cache_path = os.path.join(hypertor_data_path, "cicdarknet", "cache", f"ratio_{ratio}")
+    cic_cache_path = os.path.join(hypertor_data_path, "cicdarknet", "cache_max_rate_0.165", f"ratio_{ratio}")
     if not os.path.exists(cic_cache_path):
         os.makedirs(cic_cache_path, exist_ok=True)
     sim_name = get_sim_name(aug_config)
@@ -523,6 +524,7 @@ def run_cic_exp(num_flows, sim_name, seq_len, ratio, seed=2026):
         drop_seq_len=3,
         num_flows=num_flows,
         seed=seed,
+        max_rate=0.165,
     )
 
     log(f"Running cicdarknet exp: ratio={ratio}, flows={num_flows}, sim={sim_name}, len={seq_len}, seed={seed}")
