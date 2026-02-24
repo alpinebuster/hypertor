@@ -15,7 +15,7 @@ flags.DEFINE_integer(
 # NOTE: [1e-4, 3e-5]
 flags.DEFINE_float("learning_rate", 5e-4, "Learning rate.")
 flags.DEFINE_float("learning_rate_decay_steps", 10000, "Learning rate decay steps.")
-flags.DEFINE_float("learning_rate_decay_rate", 0.35, "Learning rate decay rate.")
+flags.DEFINE_float("learning_rate_decay_rate", 0.95, "Learning rate decay rate.")
 flags.DEFINE_float("learning_momentum", .9, "Learning momentum.")
 flags.DEFINE_integer("train_steps", 10000, "Number of training steps.")
 flags.DEFINE_string(
@@ -23,7 +23,7 @@ flags.DEFINE_string(
     "",
     "Location of the NumPy dataset cache (can be useful for small datasets).",
 )
-flags.DEFINE_integer("num_labels", 4, "Number of labels to pick for each task.")
+flags.DEFINE_integer("num_labels", 7, "Number of labels to pick for each task.")
 KERNEL_SIZE = flags.DEFINE_integer("kernel_size", 3, "Kernel size for the conv layers.")
 STRIDE = flags.DEFINE_integer("stride", 2, "Stride of the conv layers.")
 flags.DEFINE_list("flows_shape", ["28", "28"], "Image size (h, w) or (h,).")
@@ -99,7 +99,7 @@ flags.DEFINE_bool(
     False,
     "Whether to use nonlinear features produced by the feature extractor.",
 )
-flags.DEFINE_string("train_dataset", "emnist", "Training dataset specification.")
+flags.DEFINE_string("train_dataset", "tcub", "Training dataset specification.")
 
 # Currently, both approaches seem to produce very similar results, but
 # 'output' weight allocation is more suitable for generating BN parameters
@@ -169,10 +169,10 @@ flags.DEFINE_integer(
     0,
     "Seed used for shuffling labels at initialization (0 "
     "for no shuffling). Useful for datasets with many ordered "
-    "labels like Omniglot.",
+    "labels.",
 )
 
-flags.DEFINE_string("test_dataset", "emnist:8-61", "Test dataset specification.")
+flags.DEFINE_string("test_dataset", "tcub:7-13", "Test dataset specification.")
 
 flags.DEFINE_float(
     "test_smooth_probability", -1, "Probability of smoothing a test sample."
