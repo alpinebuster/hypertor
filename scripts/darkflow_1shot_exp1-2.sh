@@ -23,4 +23,4 @@ python -m hypertor.train --num_layerwise_features=8 --default_num_channels=8 \
   --darknet_ratio=0.001 --num_flows=1 --tcp_seq_len=30 \
   --simulate_nagle --nosimulate_packet_shift --nosimulate_packet_loss \
   --simulation_seeds=2000,2026 --simulation_samples_perclass=6 \
-  --gpus=0 $@
+  --gpus=1 $@
