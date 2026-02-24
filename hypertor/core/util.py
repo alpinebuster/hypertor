@@ -735,7 +735,7 @@ def dbg_ddp(tag, **tensors):
                 f"{tag} {k}: cannot inspect ({e})"
             )
 
-def normalize_flows_size(flows_shape: list[str]) -> tuple[int, int]:
+def normalize_absl_list(flows_shape: list[str]) -> tuple[int, int]:
     values = [int(v) for v in flows_shape]
 
     if len(values) == 1:

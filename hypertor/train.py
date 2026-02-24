@@ -88,7 +88,7 @@ def _common_model_config():
         "num_transformer_samples": FLAGS.samples_transformer,
         "num_cnn_samples": FLAGS.samples_cnn,
         "num_labels": FLAGS.num_labels,
-        "flows_shape": util.normalize_flows_size(FLAGS.flows_shape),
+        "flows_shape": util.normalize_absl_list(FLAGS.flows_shape),
         "cnn_model_name": FLAGS.cnn_model_name,
         "embedding_dim": FLAGS.embedding_dim,
         "cnn_dropout_rate": FLAGS.cnn_dropout_rate,

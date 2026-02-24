@@ -22,4 +22,5 @@ python -m hypertor.evaluate --num_layerwise_features=8 --default_num_channels=8 
   --use_darkflow --flows_shape=15,30 \
   --darknet_ratio=0.00001 --num_pkt_features=3 --num_flows=1 --tcp_seq_len=30 \
   --nosimulate_nagle --nosimulate_packet_shift --nosimulate_packet_loss \
+  --simulation_seeds=2000,2026 --simulation_samples_perclass=6 \
   --gpus=0 $@

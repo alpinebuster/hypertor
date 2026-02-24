@@ -33,7 +33,7 @@ def _make_augmentation_config(data_config: DatasetConfig, num_labels: int):
         return datasets.AugmentationConfig(random_config=random_config)
 
 
-def _get_cached_npy_filename_prefix(data_config: DatasetConfig) -> tuple[str, str]:
+def _get_cached_npy_filename_prefix(data_config: DatasetConfig) -> tuple[str, str, str]:
     assert data_config.tcp_aug_config is not None
     sim_flags = {
         "nagle": data_config.tcp_aug_config.simulate_nagle,
@@ -62,7 +62,11 @@ def _get_cached_npy_filename_prefix(data_config: DatasetConfig) -> tuple[str, st
         f"_sim{sim_name}"
         f"_len{data_config.tcp_aug_config.target_seq_len}"
     )
-    return prefix, sim_name
+    simnone_prefix = (
+        f"{prefix_ds_name}_flows{data_config.tcp_aug_config.num_flows}"
+        f"_simnone_len{data_config.tcp_aug_config.target_seq_len}"
+    )
+    return simnone_prefix, prefix, sim_name
 
 def merge_npy_files(data_config: DatasetConfig):
     """
@@ -70,7 +74,9 @@ def merge_npy_files(data_config: DatasetConfig):
 
     If sim == 'none', only need the file with seed 2026.
     """
-    prefix, sim_name = _get_cached_npy_filename_prefix(data_config)
+    assert data_config.tcp_aug_config is not None
+
+    simnone_prefix, prefix, sim_name = _get_cached_npy_filename_prefix(data_config)
     ratio_path = os.path.join(
         data_config.cache_path,
         f"ratio_{data_config.darknet_ratio}"
@@ -80,11 +86,38 @@ def merge_npy_files(data_config: DatasetConfig):
         if sim_name == "none":
             return
 
+        """ Episode augmentation configuration
+        #
+        # For each episode: all (7) classes use the same augmentations for support and query.
+        # 
+        # Example:
+        #    Episode 1: Support → weak augmentation,   Query → strong augmentation
+        #    Episode 2: Support → strong augmentation, Query → weak augmentation
+        #    Episode 3: Support → augmentation_1,      Query → augmentation_2
+        #    ...
+        # 
+        """
         arrays = []
-        for seed in range(2020, 2026+1):
+        simnone_file_path = os.path.join(
+            ratio_path,
+            # `seed` only used in simulation, so we fix it to 2026 here!
+            f"{simnone_prefix}_seed2026_5d.npy",
+        )
+        logging.info(
+            f"{util.get_ddp_msg()}"
+            f"Loading {simnone_file_path}"
+        )
+        if os.path.exists(simnone_file_path):
+            simnone_arr: np.ndarray = np.load(simnone_file_path)
+            if simnone_arr.ndim != 5:
+                raise ValueError(f"Expected 5D array, got shape {simnone_arr.shape}")
+            arrays.append(simnone_arr)
+
+        simulation_seeds = data_config.tcp_aug_config.simulation_seeds
+        for seed in range(simulation_seeds[0], simulation_seeds[1]+1):
             file_path = os.path.join(
                 ratio_path,
-                f"{prefix}_seed{seed}_5d.npy"
+                f"{prefix}_seed{seed}_5d.npy",
             )
 
             if not os.path.exists(file_path):
@@ -99,11 +132,10 @@ def merge_npy_files(data_config: DatasetConfig):
                 f"Loading {file_path}"
             )
             if os.path.exists(file_path):
-                arr = np.load(file_path)
+                arr: np.ndarray = np.load(file_path)
                 if arr.ndim != 5:
                     raise ValueError(f"Expected 5D array, got shape {arr.shape}")
-                
-                arrays.append(arr)
+                arrays.append(arr[:, :data_config.tcp_aug_config.simulation_samples_perclass, :, :, :])
             else:
                 continue
 
@@ -130,7 +162,7 @@ def _load_cache(data_config: DatasetConfig) -> Optional[dict[int, np.ndarray]]:
         f"{util.get_ddp_msg()}"
         f'Looking for cache in "{ratio_path}..."'
     )
-    prefix, sim_name = _get_cached_npy_filename_prefix(data_config)
+    _, prefix, sim_name = _get_cached_npy_filename_prefix(data_config)
 
     if sim_name == "none":
         _npy_path = os.path.join(
@@ -139,7 +171,7 @@ def _load_cache(data_config: DatasetConfig) -> Optional[dict[int, np.ndarray]]:
         )
         logging.info(
             f"{util.get_ddp_msg()}"
-            f"Loading not simulated data with seed 2026 {_npy_path}"
+            f"Loading not simulated data with seed 2026 {_npy_path}..."
         )
     else:
         _npy_path = os.path.join(
@@ -151,7 +183,7 @@ def _load_cache(data_config: DatasetConfig) -> Optional[dict[int, np.ndarray]]:
 
         logging.info(
             f"{util.get_ddp_msg()}"
-            f"Loading merged {_npy_path}"
+            f"Loading merged {_npy_path}..."
         )
     arr: np.ndarray = np.load(_npy_path)
     num_classes = arr.shape[0]

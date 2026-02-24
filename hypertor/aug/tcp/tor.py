@@ -10,6 +10,8 @@ import pandas as pd
 import numpy as np
 import torch
 
+from hypertor.core import util
+
 FLAGS = flags.FLAGS
 
 
@@ -35,6 +37,8 @@ class TCPAugmentationConfig:
     drop_seq_len: int = 3
     num_flows: int = 1
     num_pkt_features: int = 3
+    simulation_seeds: tuple[int, int] = (2000, 2026)
+    simulation_samples_perclass: int = 6
 
 def make_tcp_augmentation_config():
     return TCPAugmentationConfig(
@@ -46,6 +50,8 @@ def make_tcp_augmentation_config():
         drop_seq_len=FLAGS.drop_seq_len,
         num_flows=FLAGS.num_flows,
         num_pkt_features=FLAGS.num_pkt_features,
+        simulation_seeds=util.normalize_absl_list(FLAGS.simulation_seeds),
+        simulation_samples_perclass=FLAGS.simulation_samples_perclass,
     )
 
 

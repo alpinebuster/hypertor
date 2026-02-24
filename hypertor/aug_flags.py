@@ -46,3 +46,13 @@ flags.DEFINE_integer(
     3,
     "The minimal length for seq.",
 )
+flags.DEFINE_list(
+    "simulation_seeds",
+    ["2000", "2026"], 
+    "Seeds range of tcp-enhanced sequence augmentation.",
+)
+flags.DEFINE_integer(
+    "simulation_samples_perclass",
+    6,
+    "Number of tcp-enhanced augmentation samples to use.",
+)
