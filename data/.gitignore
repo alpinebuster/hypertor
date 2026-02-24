@@ -2,3 +2,4 @@ logs
 *.pt
 *.csv
 *.npy
+*.tar

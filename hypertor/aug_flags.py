@@ -33,7 +33,7 @@ flags.DEFINE_integer(
 )
 flags.DEFINE_integer(
     "num_pkt_features",
-    1,
+    15,
     "Number of packet feature types per flow.",
 )
 flags.DEFINE_integer(

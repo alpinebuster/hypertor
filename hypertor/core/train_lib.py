@@ -135,7 +135,13 @@ def merge_npy_files(data_config: DatasetConfig):
                 arr: np.ndarray = np.load(file_path)
                 if arr.ndim != 5:
                     raise ValueError(f"Expected 5D array, got shape {arr.shape}")
-                arrays.append(arr[:, :data_config.tcp_aug_config.simulation_samples_perclass, :, :, :])
+                if (
+                    data_config.tcp_aug_config.simulation_samples_perclass is not None
+                    and data_config.tcp_aug_config.simulation_samples_perclass>0
+                ):
+                    arrays.append(arr[:, :data_config.tcp_aug_config.simulation_samples_perclass, :, :, :])
+                else:
+                    arrays.append(arr)
             else:
                 continue
 
@@ -188,10 +194,20 @@ def _load_cache(data_config: DatasetConfig) -> Optional[dict[int, np.ndarray]]:
     arr: np.ndarray = np.load(_npy_path)
     num_classes = arr.shape[0]
     assert data_config.tcp_aug_config is not None
-    data: dict[int, np.ndarray] = {
-        label: arr[label][:, :, :data_config.tcp_aug_config.num_pkt_features, :]
-        for label in range(num_classes)
-    }
+
+    if (
+        data_config.tcp_aug_config.num_pkt_features is not None
+        and data_config.tcp_aug_config.num_pkt_features>0
+    ):
+        data: dict[int, np.ndarray] = {
+            label: arr[label][:, :, :data_config.tcp_aug_config.num_pkt_features, :]
+            for label in range(num_classes)
+        }
+    else:
+        data = {
+            label: arr[label]
+            for label in range(num_classes)
+        }
 
     if data is None:
         logging.info(
@@ -296,7 +312,7 @@ def _make_dataset_helper_unbalanced(
         num_unlabeled_per_class=data_config.num_unlabeled_per_class,
     )
 
-    if flows_shape is not None:
+    if flows_shape is not None and samples[0].shape != flows_shape:
         samples = _resize(samples, flows_shape)
 
     sample: datasets.SupervisedSample = (samples, labels, classes)
@@ -333,7 +349,7 @@ def _make_dataset_helper_balanced(
     )
     output: list[datasets.SupervisedSample] = []
     for samples, labels, classes in samples_labels:
-        if flows_shape is not None:
+        if flows_shape is not None and samples[0][0].shape != flows_shape:
             samples = _resize(samples, flows_shape)
 
         output.append((samples, labels, classes))

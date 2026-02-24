@@ -26,7 +26,7 @@ flags.DEFINE_string(
 flags.DEFINE_integer("num_labels", 7, "Number of labels to pick for each task.")
 KERNEL_SIZE = flags.DEFINE_integer("kernel_size", 3, "Kernel size for the conv layers.")
 STRIDE = flags.DEFINE_integer("stride", 2, "Stride of the conv layers.")
-flags.DEFINE_list("flows_shape", ["28", "28"], "Image size (h, w) or (h,).")
+flags.DEFINE_list("flows_shape", ["15", "30"], "Image size (h, w) or (h,).")
 flags.DEFINE_integer("num_sample_repeats", 1, "Number of repeats for each task.")
 flags.DEFINE_integer(
     "steps_between_saves", 1000, "Number of steps between model saves."
