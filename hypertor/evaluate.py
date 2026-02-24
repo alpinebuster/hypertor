@@ -125,6 +125,7 @@ def run_evaluation(
             writer_name=SUMMARY_SUBFOLDER,
         )
         for name, info in dataset_info.items():
+            logging.info(f"\nEvaluating dataset {name}, {info} at step {global_step}/{FLAGS.train_steps}")
             batch_provider, custom_labels = info
             _, accs = eval_lib.evaluate_dataset(
                 custom_labels=custom_labels,

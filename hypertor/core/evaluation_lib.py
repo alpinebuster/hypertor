@@ -8,6 +8,7 @@ import time
 
 from typing import Callable, Optional, Tuple
 
+from absl import logging
 import numpy as np
 import torch
 
@@ -120,7 +121,7 @@ def evaluate_dataset(
         cached_transformer_masks = task_batch.transformer_masks
 
         accs: list[float] = []
-        for _ in range(eval_config.num_eval_batches):
+        for ib in range(eval_config.num_eval_batches):
             eval_batch = batch_provider().to(device)
             outputs: common.ModelOutputs = make_outputs_fn(
                 transformer_samples=cached_transformer_samples,
@@ -130,6 +131,7 @@ def evaluate_dataset(
                 cnn_labels=eval_batch.cnn_labels,
             ) # type:ignore
             accs.append(outputs.accuracy.item())
+            logging.info(f">>> num_eval_batches/task_num: {ib}/{task_num} -> acc: {outputs.accuracy.item()}")
 
         test_accs[task_num] = accs
         all_accs.append(float(np.mean(accs)))
