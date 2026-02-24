@@ -66,7 +66,7 @@ def dataset_with_custom_labels(
     """Returns a dataset with a controlled label set (should be reshuffled)."""
     custom_labels = copy.copy(dataset_config.use_label_subset)
     dataset_config = dataclasses.replace(
-        dataset_config, use_label_subset=lambda: custom_labels
+        dataset_config, use_label_subset=lambda: custom_labels # type:ignore
     )
 
     # ALL data
@@ -128,7 +128,7 @@ def evaluate_dataset(
                 transformer_masks=cached_transformer_masks,
                 cnn_samples=eval_batch.cnn_samples,
                 cnn_labels=eval_batch.cnn_labels,
-            )
+            ) # type:ignore
             accs.append(outputs.accuracy.item())
 
         test_accs[task_num] = accs

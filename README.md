@@ -64,10 +64,10 @@ Folder `scripts` contains several training scripts for `darknet-dataset-2020` an
 They can be executed as follows:
 
 ```shell
-./scripts/darkflow_1shot.sh --data_dir=./data/darkflow --data_numpy_dir=./data/darkflow/cache --train_log_dir=./data/darkflow/logs/torch
+./scripts/darkflow_1shot.sh --data_numpy_dir=./data/darkflow/cache --train_log_dir=./data/darkflow/logs/torch
 ```
 
-The **evaluation** script `evaluate_model.py` can be executed **in parallel** to
+NOTE: The **evaluation** script `evaluate.py` can be executed **in parallel** to
 evaluate produced checkpoints while the model is being trained.
 The evaluation script accepts the same parameters as the training script.
 
@@ -128,7 +128,7 @@ nohup torchrun --nproc_per_node=2 ./hypertor/train.py -- \
   --num_task_evals=1024 --num_eval_batches=16 --eval_batch_size=100 \
   --shuffle_labels_seed=2026 \
   --test_smooth_probability=0.0 --test_negate_probability=0.0 \
-  --data_dir=./data/omniglot --data_numpy_dir=./data/omniglot/cache \
+  --data_numpy_dir=./data/omniglot/cache \
   --train_log_dir=./data/omniglot/logs/torch_ddp \
   --use_ddp \
   > omniglot_ddp.log 2>&1 &

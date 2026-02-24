@@ -170,7 +170,6 @@ def make_dataset_config(dataset_spec=""):
         dataset_name=dataset,
         use_label_subset=label_set,
         ds_split="train",
-        data_dir=FLAGS.data_dir,
         darknet_ratio=FLAGS.darknet_ratio,
         tcp_aug_config=tor.make_tcp_augmentation_config(),
         smooth_probability=FLAGS.smooth_probability,
@@ -197,7 +196,8 @@ def make_test_dataset_config(dataset_spec=""):
         dataset_name=dataset,
         use_label_subset=label_set,
         ds_split=FLAGS.test_split,
-        data_dir=FLAGS.data_dir,
+        darknet_ratio=FLAGS.darknet_ratio,
+        tcp_aug_config=tor.make_tcp_augmentation_config(),
         smooth_probability=_default(
             FLAGS.test_smooth_probability, FLAGS.smooth_probability
         ),

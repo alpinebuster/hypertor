@@ -33,7 +33,6 @@ class DatasetConfig:
     use_label_subset: Optional[list[int]] = None
     ds_split: str = "train"
     meta_dataset_split: str = "train"
-    data_dir: Optional[str] = None
     ds: Optional["HTDataset"] = None
     dataset_info: Optional[DatasetInfo] = None
     per_label_augmentation: bool = False

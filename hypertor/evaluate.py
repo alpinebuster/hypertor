@@ -12,7 +12,9 @@ import torch
 from hypertor import common_flags
 from hypertor import eval_model_flags  # pylint:disable=unused-import
 from hypertor import variable_proto_flags  # pylint:disable=unused-import
+from hypertor import aug_flags  # pylint:disable=unused-import
 from hypertor import train
+
 from hypertor.core import common_ht
 from hypertor.core import evaluation_lib as eval_lib
 from hypertor.core import layerwise
@@ -22,15 +24,15 @@ from hypertor.core import util
 FLAGS = flags.FLAGS
 
 DS_PRESETS = {
-    "miniimagenet": {
-        "train": "miniimagenet:0-63",
-        "val": "miniimagenet:64-79",
-        "test": "miniimagenet:80-99",
+    "cicdarknet": {
+        "train": "cicdarknet:0-6",
+        "val": "cicdarknet:0-6",
+        "test": "cicdarknet:0-6",
     },
-    "omniglot": {
-        "train": "omniglot:0-1149",
-        "val": "omniglot:1150-1199",
-        "test": "omniglot:1200-1622",
+    "tcub": {
+        "train": "tcub:0-6",
+        "val": "tcub:0-6",
+        "test": "tcub:0-6",
     },
 }
 
@@ -171,6 +173,47 @@ def evaluate_pretrained(model_config: common_ht.LayerwiseModelConfig):
     for _, info in dataset_info.items():
         batch_provider, _ = info
         dataset = batch_provider()
+
+        # Variable prototype
+        vp_state = train.restore_variable_proto(model_config)
+        if vp_state:
+            num_prototypes = vp_state.prototype_shape[0]
+            prototype_shape = vp_state.prototype_shape
+            prototype_class_identity = vp_state.prototype_class_identity
+            prototype_ids_per_class = vp_state.prototype_ids_per_class
+        elif model_config.use_variable_proto:
+            variable_proto_config=train.make_variable_proto_config()
+
+            num_classes = model_config.num_labels
+            num_prototypes = num_classes * variable_proto_config.prototypes
+            prototype_shape = (
+                num_prototypes,
+                model_config.default_num_channels,
+                variable_proto_config.prototype_size[0],
+                variable_proto_config.prototype_size[1],
+            )
+
+            prototype_class_identity = torch.zeros(num_prototypes, num_classes)
+            for j in range(num_prototypes):
+                prototype_class_identity[j, j // variable_proto_config.prototypes] = 1
+
+            prototype_ids_per_class = {}
+            for i in range(num_classes):
+                prototype_ids_per_class[i] = [i]
+        else:
+            prototype_shape = None
+            prototype_class_identity = None
+            prototype_ids_per_class = None
+
+        if model_config.use_variable_proto:
+            assert prototype_shape is not None
+            assert prototype_class_identity is not None
+            assert prototype_ids_per_class is not None
+            model_config.prototype_shape = prototype_shape
+            model_config.prototype_class_identity = prototype_class_identity
+            model_config.prototype_ids_per_class = prototype_ids_per_class
+
+        logging.info("Building the model...")
         model = layerwise.build_model(
             model_config.cnn_model_name,
             model_config=model_config,
@@ -212,6 +255,7 @@ def main(argv):
         os.environ["CUDA_VISIBLE_DEVICES"] = gpus
     util.print_gpu_detailed_info()
 
+    # NOTE
     FLAGS.samples_cnn = FLAGS.eval_batch_size
     evaluate_pretrained(train.make_layerwise_model_config())
 

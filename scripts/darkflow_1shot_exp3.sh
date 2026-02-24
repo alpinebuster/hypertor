@@ -1,5 +1,5 @@
 #
-#    `nohup ./scripts/darkflow_1shot_exp3.sh --data_dir=./data/cicdarknet --data_numpy_dir=./data/cicdarknet/cache --train_log_dir=./data/cicdarknet/logs/torch_1shot_exp3-1 > darkflow_cicdarknet_1shot_exp3-1.log 2>&1 &`
+#    `nohup ./scripts/darkflow_1shot_exp3.sh --data_numpy_dir=./data/cicdarknet/cache --train_log_dir=./data/cicdarknet/logs/torch_1shot_exp3-1 > darkflow_cicdarknet_1shot_exp3-1.log 2>&1 &`
 # 
 python -m hypertor.train --num_layerwise_features=8 --default_num_channels=8 \
   --samples_transformer=35 --samples_cnn=35 --num_labels=7 --learning_rate=5e-2 \

@@ -3,7 +3,7 @@
 #    "--data_numpy_dir=<darkflow_cache> --train_log_dir=<output_path>"
 # 
 # e.g.
-#    `nohup ./scripts/darkflow_1shot.sh --data_dir=./data/darkflow --data_numpy_dir=./data/darkflow/cache --train_log_dir=./data/darkflow/logs/torch_1shot > darkflow_1shot.log 2>&1 &`
+#    `nohup ./scripts/darkflow_1shot.sh --data_numpy_dir=./data/darkflow/cache --train_log_dir=./data/darkflow/logs/torch_1shot > darkflow_1shot.log 2>&1 &`
 # 
 python -m hypertor.train --num_layerwise_features=8 --default_num_channels=8 \
   --samples_transformer=7 --samples_cnn=14 --num_labels=7 --learning_rate=5e-4 \
