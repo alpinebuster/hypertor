@@ -988,7 +988,7 @@ class VariableProtoLayer(BaseCNNLayer):
         self.prototype_activation_func = model_config.prototype_activation_func
         self.prototype_class_identity = model_config.prototype_class_identity
         self.prototype_ids_per_class = model_config.prototype_ids_per_class
-        self.proto_layer_rf_info = model_config.proto_layer_rf_info
+        self.proto_layer_rf_info: dict[str, float] = model_config.proto_layer_rf_info
 
         # 1) Training semantics (without `detach`)
         self.cached_prototype_vectors: Optional[torch.Tensor] = None

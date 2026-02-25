@@ -189,7 +189,7 @@ class LayerwiseModelConfig(ModelConfig):
     prototype_shape: tuple[int, int, int, int] = (0, 0, 0, 0)
     prototype_class_identity: torch.Tensor = torch.zeros(0, 0)
     prototype_ids_per_class: dict[int, list[int]] = dataclasses.field(default_factory=dict)
-    proto_layer_rf_info: list = dataclasses.field(default_factory=list)
+    proto_layer_rf_info: dict[str, float] = dataclasses.field(default_factory=dict)
     prototype_activation_func: Union[
         Literal["log", "linear"],
         Callable[..., torch.Tensor],

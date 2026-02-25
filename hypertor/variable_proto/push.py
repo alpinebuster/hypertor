@@ -22,25 +22,25 @@ if TYPE_CHECKING:
 
 def _update_prototypes_on_batch(
     variable_proto_config: "common_vp.ProtoTrainConfig",
-    search_batch_input,
-    start_index_of_search_batch,
+    search_batch_input: torch.Tensor,
+    start_index_of_search_batch: int,
     model_ddp: Union["DDP", "layerwise.LayerwiseModel"],
-    epoch_number,
-    global_min_proto_dist, # this will be updated
-    global_min_fmap_patches, # this will be updated
-    global_samples_dist, # this will be updated
-    proto_rf_boxes, # this will be updated
-    proto_bound_boxes, # this will be updated
-    class_specific=True,
-    search_y=None, # required if class_specific == True
-    num_classes=None, # required if class_specific == True
+    epoch_number: int,
+    global_min_proto_dist: np.ndarray, # this will be updated
+    global_min_fmap_patches: np.ndarray, # this will be updated
+    global_samples_dist: np.ndarray, # this will be updated
+    proto_rf_boxes: np.ndarray, # this will be updated
+    proto_bound_boxes: np.ndarray, # this will be updated
+    class_specific: bool = True,
+    search_y: Optional[torch.Tensor] = None, # required if class_specific == True
+    num_classes: Optional[int] = None, # required if class_specific == True
     preprocess_input_function=None,
-    prototype_layer_stride=1,
-    dir_for_saving_prototypes=None,
-    prototype_img_filename_prefix=None,
-    prototype_self_act_filename_prefix=None,
+    prototype_layer_stride: int = 1,
+    dir_for_saving_prototypes: Optional[str] = None,
+    prototype_img_filename_prefix: Optional[str] = None,
+    prototype_self_act_filename_prefix: Optional[str] = None,
     prototype_activation_func_in_numpy=None,
-    percentile=95,
+    percentile: int = 95,
 ):
     """Update each prototypes for current search batch.
 
@@ -93,7 +93,7 @@ def _update_prototypes_on_batch(
         # img_y is the sample's integer label
         for img_index, img_y in enumerate(search_y): # type: ignore
             img_label = img_y.item()
-            class_to_img_index_dict[img_label].append(img_index)
+            class_to_img_index_dict[img_label].append(img_index) # type: ignore
 
     prototype_shape = proto_layer.prototype_shape
     n_prototypes = prototype_shape[0]
@@ -183,8 +183,8 @@ def _update_prototypes_on_batch(
 
             # Get the whole sample
             original_img_j = search_batch_input[rf_prototype_j[0]]
-            original_img_j = original_img_j.detach().cpu().numpy()
-            original_img_j = np.transpose(original_img_j, (1, 2, 0))
+            original_img_j = original_img_j.detach().cpu().numpy() # type: ignore
+            original_img_j = np.transpose(original_img_j, (1, 2, 0)) # type: ignore
             original_img_size0 = original_img_j.shape[1]
             original_img_size1 = original_img_j.shape[0]
 
@@ -304,13 +304,13 @@ def push_prototypes(
     global_samples_dist = np.full((search_batch_size, n_prototypes), np.inf) # type: ignore
 
     """
-    proto_rf_boxes and proto_bound_boxes column:
-    0: index in the entire dataset
-    1: height start index
-    2: height end index
-    3: width start index
-    4: width end index
-    5: (optional) class identity
+    `proto_rf_boxes` and `proto_bound_boxes` column:
+       0: index in the entire dataset
+       1: height start index
+       2: height end index
+       3: width start index
+       4: width end index
+       5: (optional) class identity
 
     e.g.
     [
