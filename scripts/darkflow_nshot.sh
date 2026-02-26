@@ -5,4 +5,4 @@
 # e.g.
 #    `nohup ./scripts/darkflow_nshot.sh --data_numpy_dir=./data/darkflow/cache --train_log_dir=./data/darkflow/logs/torch_nshot > darkflow_nshot.log 2>&1 &`
 # 
-./scripts/darkflow_1shot.sh --samples_transformer=70 --samples_cnn=70 $@
+./scripts/darkflow_1shot.sh --samples_transformer=35 --samples_cnn=70 $@
