@@ -275,7 +275,7 @@ def build_dataset(
     C = len(all_cols)
     T = aug_config.target_seq_len
 
-    all_data_np = [
+    all_data_np = [ # shape = [num_class, num_samples, F, C, T]
         np.stack(class_samples, axis=0)  # shape = [num_samples, F, C, T]
         for class_samples in all_data
     ]
@@ -315,6 +315,9 @@ def csv2numpy(
     fpbase_file = os.path.join(lpbase_path, f"darkflow_raw_{ratio}.csv")
 
     df = pd.read_csv(base_file, encoding="utf-8-sig")
+    log(f"raw: {df['label'].value_counts()}")
+    # import pdb;pdb.set_trace()
+
     if ratio == 1.:
         fp_df = None
     else:
@@ -329,6 +332,16 @@ def csv2numpy(
         fp_df["ja4l_2"] = pd.to_numeric(fp_df["ja4l_2"], errors="coerce").astype("Int64")
 
 
+        intersect_df = df.merge(
+            fp_df[['norm_flow_key']], 
+            on='norm_flow_key', 
+            how='inner',
+        )
+        label_count = intersect_df['label'].value_counts(dropna=False)
+        log(f"intersect label count:\n{label_count}")
+        import pdb;pdb.set_trace()
+
+
     df[["ja4_1", "ja4_2", "ja4_3"]] = df["ja4"].str.split("_", expand=True)
     for c in ["ja4_1", "ja4_2", "ja4_3"]:
         df[c] = df[c].fillna("").astype(str)
@@ -336,7 +349,6 @@ def csv2numpy(
     df[["ja4l_1", "ja4l_2"]] = df["ja4l"].str.split("_", expand=True)
     df["ja4l_1"] = pd.to_numeric(df["ja4l_1"], errors="coerce").astype("Int64")
     df["ja4l_2"] = pd.to_numeric(df["ja4l_2"], errors="coerce").astype("Int64")
-
 
     simulator = tcp_aug.TCPSequenceSimulator(aug_config)
     all_cols = [
@@ -425,7 +437,7 @@ def _exp_tcub(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
         tcub_dataset_5d,
     )
     """
-    TCUB:
+    DARKFLOW - TCUB (Drop seq len less than 3):
     Ratio: 1.0
        class browsing(id 0): 642 samples
        class chat(id 1): 207 samples
@@ -435,16 +447,23 @@ def _exp_tcub(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
        class streaming(id 5): 1036 samples
        class voip(id 6): 442 samples
 
-    Ratio: 1e-05
-       class browsing(id 0): 94 samples
-       class chat(id 1): 10 samples
-       class email(id 2): 30 samples
-       class ftp(id 3): 816 samples
-       class p2p(id 4): 388 samples
-       class streaming(id 5): 320 samples
-       class voip(id 6): 139 samples
+    Ratio: 0.001
+       class browsing(id 0): 546 samples
+       class chat(id 1): 128 samples
+       class email(id 2): 124 samples
+       class ftp(id 3): 398 samples
+       class p2p(id 4): 241 samples
+       class streaming(id 5): 788 samples
+       class voip(id 6): 251 samples
 
     Ratio: 1e-05
+       class browsing(id 0): 4 samples
+       class chat(id 1): 8 samples
+       class email(id 2): 2 samples
+       class ftp(id 3): 18 samples
+       class p2p(id 4): 27 samples
+       class streaming(id 5): 5 samples
+       class voip(id 6): 9 samples
     """
     file_name_max = (
         f"tcub_flows{aug_config.num_flows}"
@@ -527,7 +546,7 @@ def _exp_cicdarknet(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
         cic_dataset_5d,
     )
     """
-    CICDarknet:
+    DARKFLOW - CICDarknet (Drop seq len less than 3):
     Ratio: 1.0
        class browsing(id 0): 62 samples
        class chat(id 1): 16 samples
@@ -537,16 +556,23 @@ def _exp_cicdarknet(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
        class streaming(id 5): 227 samples
        class voip(id 6): 44 samples
 
-    Ratio: 0.001
-       class browsing(id 0): 62 samples
-       class chat(id 1): 16 samples
-       class email(id 2): 10 samples
-       class ftp(id 3): 13 samples
-       class p2p(id 4): 48 samples
-       class streaming(id 5): 227 samples
-       class voip(id 6): 44 samples
+    Ratio: 0.001 (NO enough FP data -> only 1 flow)
+       class browsing(id 0): 5 samples
+       class chat(id 1): 3 samples
+       class email(id 2): 1 samples
+       class ftp(id 3): 3 samples
+       class p2p(id 4): 4 samples
+       class streaming(id 5): 2 samples
+       class voip(id 6): 2 samples
 
-    Ratio: 1e-05
+    Ratio: 1e-05 (NO enough FP data -> only 1 flow)
+       class browsing(id 0): 5 samples
+       class chat(id 1): 3 samples
+       class email(id 2): 1 samples
+       class ftp(id 3): 3 samples
+       class p2p(id 4): 4 samples
+       class streaming(id 5): 2 samples
+       class voip(id 6): 2 samples
     """
     file_name_max = (
         f"cic_flows{aug_config.num_flows}"
