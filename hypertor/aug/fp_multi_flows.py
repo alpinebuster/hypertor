@@ -310,21 +310,23 @@ def csv2numpy(
 
     base_file = os.path.join(base_path, "darkflow_raw_ja4cleaned.csv")
     # The cicdarknet dataset did NOT support multi flows
-    if dataset.lower() == "cicdarknet":
+    if dataset.lower() == "cicdarknet" or ratio == 1.:
         base_file = os.path.join(base_path, "darkflow_raw.csv")
     fpbase_file = os.path.join(lpbase_path, f"darkflow_raw_{ratio}.csv")
 
     df = pd.read_csv(base_file, encoding="utf-8-sig")
-    fp_df = pd.read_csv(fpbase_file, encoding="utf-8-sig")
+    if ratio == 1.:
+        fp_df = None
+    else:
+        fp_df = pd.read_csv(fpbase_file, encoding="utf-8-sig")
 
+        fp_df[["ja4_1", "ja4_2", "ja4_3"]] = fp_df["ja4"].str.split("_", expand=True)
+        for c in ["ja4_1", "ja4_2", "ja4_3"]:
+            fp_df[c] = fp_df[c].fillna("").astype(str)
 
-    fp_df[["ja4_1", "ja4_2", "ja4_3"]] = fp_df["ja4"].str.split("_", expand=True)
-    for c in ["ja4_1", "ja4_2", "ja4_3"]:
-        fp_df[c] = fp_df[c].fillna("").astype(str)
-
-    fp_df[["ja4l_1", "ja4l_2"]] = fp_df["ja4l"].str.split("_", expand=True)
-    fp_df["ja4l_1"] = pd.to_numeric(fp_df["ja4l_1"], errors="coerce").astype("Int64")
-    fp_df["ja4l_2"] = pd.to_numeric(fp_df["ja4l_2"], errors="coerce").astype("Int64")
+        fp_df[["ja4l_1", "ja4l_2"]] = fp_df["ja4l"].str.split("_", expand=True)
+        fp_df["ja4l_1"] = pd.to_numeric(fp_df["ja4l_1"], errors="coerce").astype("Int64")
+        fp_df["ja4l_2"] = pd.to_numeric(fp_df["ja4l_2"], errors="coerce").astype("Int64")
 
 
     df[["ja4_1", "ja4_2", "ja4_3"]] = df["ja4"].str.split("_", expand=True)
@@ -398,7 +400,16 @@ def _exp_tcub(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
     # csv -> pd -> numpy[all_classes, all_samples, F, C, T]
     tcub_dataset_5d, (tcub_dataset_max_5d, tcub_class_counts) = csv2numpy(aug_config, "tcub", ratio)
 
-    tcub_cache_path = os.path.join(hypertor_data_path, "tcub", "cache_max_rate_0.165", f"ratio_{ratio}")
+    if ratio == 1.:
+        _cache_subpath = "cache"
+    else:
+        _cache_subpath = f"cache_max_rate_{aug_config.max_rate}"
+    tcub_cache_path = os.path.join(
+        HYPERTOR_DATA_PATH,
+        "tcub",
+        _cache_subpath,
+        f"ratio_{ratio}",
+    )
     if not os.path.exists(tcub_cache_path):
         os.makedirs(tcub_cache_path, exist_ok=True)
     sim_name = get_sim_name(aug_config)
@@ -415,6 +426,8 @@ def _exp_tcub(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
     )
     """
     TCUB:
+    Ratio: 1.0
+
     Ratio: 0.001 & 1e-05
        class browsing(id 0): 94 samples
        class chat(id 1): 10 samples
@@ -453,7 +466,11 @@ def run_tcub_exp(num_flows, sim_name, seq_len, ratio, seed=2026):
     _exp_tcub(tcub_aug_config, ratio)
 
 def exp_tcub_flows(ratio, seed):
-    flows = [1, 3, 6, 9]
+    if ratio == 1.:
+        flows = [1]
+    else:
+        flows = [1, 3, 6, 9]
+
     sims = ["none", "nagle", "shift", "loss", "all"]
     seq_lens = [30, 60, 90]
 
@@ -476,7 +493,16 @@ def _exp_cicdarknet(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
     # csv -> pd -> numpy[all_classes, all_samples, F, C, T]
     cic_dataset_5d, (cic_dataset_max_5d, cic_class_counts) = csv2numpy(aug_config, "cicdarknet", ratio)
 
-    cic_cache_path = os.path.join(hypertor_data_path, "cicdarknet", "cache_max_rate_0.165", f"ratio_{ratio}")
+    if ratio == 1.:
+        _cache_subpath = "cache"
+    else:
+        _cache_subpath = f"cache_max_rate_{aug_config.max_rate}"
+    cic_cache_path = os.path.join(
+        HYPERTOR_DATA_PATH,
+        "cicdarknet",
+        _cache_subpath,
+        f"ratio_{ratio}",
+    )
     if not os.path.exists(cic_cache_path):
         os.makedirs(cic_cache_path, exist_ok=True)
     sim_name = get_sim_name(aug_config)
@@ -493,6 +519,8 @@ def _exp_cicdarknet(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
     )
     """
     CICDarknet:
+    Ratio: 1.0
+
     Ratio: 0.001 & 1e-05
        class browsing(id 0): 62 samples
        class chat(id 1): 16 samples
@@ -559,7 +587,7 @@ def parse_args():
         "--ratio",
         type=float,
         default=0.00001,
-        help="Dataset ratio (e.g., 0.001, 0.00001)"
+        help="Dataset ratio (e.g., 1, 0.001 and 0.00001)"
     )
     parser.add_argument(
         "--seed",
@@ -603,10 +631,10 @@ if __name__ == "__main__":
 
     current_file = Path(__file__).resolve()
     current_dir = current_file.parent
-    hypertor_data_path = (current_dir / "../../data").resolve()
+    HYPERTOR_DATA_PATH = (current_dir / "../../data").resolve()
     log(f"current_file: {current_file}")
     log(f"current_dir: {current_dir}")
-    log(f"hypertor_data_path: {hypertor_data_path}")
+    log(f"HYPERTOR_DATA_PATH: {HYPERTOR_DATA_PATH}")
 
     # run_experiment(DATASET, RATIO, 2026)
 
