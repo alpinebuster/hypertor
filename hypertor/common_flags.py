@@ -335,5 +335,5 @@ flags.DEFINE_bool(
 flags.DEFINE_float(
     "darknet_ratio",
     0.001,
-    "The darknet (tor) traffic ratio in all flows.",
+    "The darknet (tor) traffic ratio (1, 0.001 and 0.00001) in all flows.",
 )

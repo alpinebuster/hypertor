@@ -48,5 +48,6 @@
         "usec",
         "virtualenvs"
     ],
-    "python-envs.defaultEnvManager": "ms-python.python:pyenv"
+    "python-envs.defaultEnvManager": "ms-python.python:poetry",
+    "python-envs.defaultPackageManager": "ms-python.python:poetry"
 }
