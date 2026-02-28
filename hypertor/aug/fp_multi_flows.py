@@ -427,8 +427,15 @@ def _exp_tcub(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
     """
     TCUB:
     Ratio: 1.0
+       class browsing(id 0): 642 samples
+       class chat(id 1): 207 samples
+       class email(id 2): 227 samples
+       class ftp(id 3): 1177 samples
+       class p2p(id 4): 776 samples
+       class streaming(id 5): 1036 samples
+       class voip(id 6): 442 samples
 
-    Ratio: 0.001 & 1e-05
+    Ratio: 1e-05
        class browsing(id 0): 94 samples
        class chat(id 1): 10 samples
        class email(id 2): 30 samples
@@ -436,6 +443,8 @@ def _exp_tcub(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
        class p2p(id 4): 388 samples
        class streaming(id 5): 320 samples
        class voip(id 6): 139 samples
+
+    Ratio: 1e-05
     """
     file_name_max = (
         f"tcub_flows{aug_config.num_flows}"
@@ -520,8 +529,6 @@ def _exp_cicdarknet(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
     """
     CICDarknet:
     Ratio: 1.0
-
-    Ratio: 0.001 & 1e-05
        class browsing(id 0): 62 samples
        class chat(id 1): 16 samples
        class email(id 2): 10 samples
@@ -529,6 +536,17 @@ def _exp_cicdarknet(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
        class p2p(id 4): 48 samples
        class streaming(id 5): 227 samples
        class voip(id 6): 44 samples
+
+    Ratio: 0.001
+       class browsing(id 0): 62 samples
+       class chat(id 1): 16 samples
+       class email(id 2): 10 samples
+       class ftp(id 3): 13 samples
+       class p2p(id 4): 48 samples
+       class streaming(id 5): 227 samples
+       class voip(id 6): 44 samples
+
+    Ratio: 1e-05
     """
     file_name_max = (
         f"cic_flows{aug_config.num_flows}"
