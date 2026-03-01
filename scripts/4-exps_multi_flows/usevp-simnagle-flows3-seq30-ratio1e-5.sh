@@ -1,6 +1,6 @@
 # 
 # 1) TCUB:
-#    `nohup ./scripts/3-exps_variable_prototypes/usevp-simnagle-flows3-seq30-ratio1e-5.sh --data_numpy_dir=./data/tcub/cache --train_log_dir=./data/tcub/logs/3-exps_variable_prototypes/tcub-usevp-simnagle-flows3-seq30-ratio1e-5 > tcub-usevp-simnagle-flows3-seq30-ratio1e-5.log 2>&1 &`
+#    `nohup ./scripts/4-exps_multi_flows/usevp-simnagle-flows3-seq30-ratio1e-5.sh --data_numpy_dir=./data/tcub/cache --train_log_dir=./data/tcub/logs/4-exps_multi_flows/tcub-usevp-simnagle-flows3-seq30-ratio1e-5 > tcub-usevp-simnagle-flows3-seq30-ratio1e-5.log 2>&1 &`
 # 
 # 2) CICDARKNET: NO enough FP data
 # 

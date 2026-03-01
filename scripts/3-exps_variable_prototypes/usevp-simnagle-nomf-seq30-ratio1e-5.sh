@@ -9,4 +9,4 @@
   --use_variable_proto \
   --darknet_ratio=0.00001 \
   --simulate_nagle --nosimulate_packet_shift --nosimulate_packet_loss \
-  --gpus=0 $@
+  --gpus=1 $@
