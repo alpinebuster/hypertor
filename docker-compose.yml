@@ -13,7 +13,6 @@ services:
     container_name: hypertor
     restart: unless-stopped
     ports:
-      - "11050-11060:11250-11260"
       - "6006-6009:6006-6009"
     volumes:
       - ./:/root/workspace
