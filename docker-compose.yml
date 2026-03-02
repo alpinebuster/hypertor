@@ -1,0 +1,24 @@
+#
+# sudo docker run --rm --runtime=nvidia --gpus all nvidia/cuda:12.6.3-cudnn-devel-ubuntu24.04 nvidia-smi
+# 
+# docker compose build --progress=plain
+# docker compose up -d
+#
+services:
+  hypertor:
+    build: .
+    container_name: hypertor
+    command: /bin/bash
+    restart: unless-stopped
+    ports:
+      - "11050-11060:11250-11260"
+      - "6006-6060:6006-6060"
+    volumes:
+      - ./:/root/workspace
+    shm_size: 64g
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    stdin_open: true
+    tty: true
