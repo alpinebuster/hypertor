@@ -7,8 +7,9 @@
 services:
   hypertor:
     build: .
+    image: alpinebuster/hypertor:latest
+    pull_policy: never
     container_name: hypertor
-    command: /bin/bash
     restart: unless-stopped
     ports:
       - "11050-11060:11250-11260"
@@ -22,3 +23,4 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     stdin_open: true
     tty: true
+    command: /bin/bash
