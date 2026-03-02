@@ -13,7 +13,7 @@ services:
     restart: unless-stopped
     ports:
       - "11050-11060:11250-11260"
-      - "6006-6060:6006-6060"
+      - "6006-6009:6006-6009"
     volumes:
       - ./:/root/workspace
     shm_size: 64g
