@@ -62,17 +62,18 @@ def _build(
                 seq = seq[:, :target_len]
             seq_aug = simulator.augment_tcp_sequence(seq)
             X_aug_list.append(seq_aug)
-        else:
-            padded_features = []
-            for f in feature_list:
-                fseq = np.array(f, dtype=np.float32)
-                pad_len = target_len - len(fseq)
-                if pad_len > 0:
-                    fseq = np.pad(fseq, (0, pad_len), mode='constant', constant_values=0)
-                padded_features.append(fseq)
+        # NOTE: Drop samples whose length is smaller than 3
+        # else:
+        #     padded_features = []
+        #     for f in feature_list:
+        #         fseq = np.array(f, dtype=np.float32)
+        #         pad_len = target_len - len(fseq)
+        #         if pad_len > 0:
+        #             fseq = np.pad(fseq, (0, pad_len), mode='constant', constant_values=0)
+        #         padded_features.append(fseq)
 
-            seq_aug = np.stack(padded_features, axis=0)  # [C, target_len]
-            X_aug_list.append(seq_aug)
+        #     seq_aug = np.stack(padded_features, axis=0)  # [C, target_len]
+        #     X_aug_list.append(seq_aug)
 
     X_aug = np.stack(X_aug_list, axis=0)  # [F, C, target_len]
 
