@@ -75,28 +75,31 @@ def _build(
         #     seq_aug = np.stack(padded_features, axis=0)  # [C, target_len]
         #     X_aug_list.append(seq_aug)
 
-    X_aug = np.stack(X_aug_list, axis=0)  # [F, C, target_len]
+    if len(X_aug_list) > 0:
+        X_aug = np.stack(X_aug_list, axis=0)  # [F, C, target_len]
 
-    # Normalization
-    #   1) cols_small -> remains unchanged
-    #   2) cols_numeric -> min-max
-    #   3) cols_large -> log + min-max
-    idx_numeric = [all_cols.index(c) for c in cols_numeric]
-    X_aug[:, idx_numeric, :] = darkflow.min_max_normalize_np(X_aug[:, idx_numeric, :])
+        # Normalization
+        #   1) cols_small -> remains unchanged
+        #   2) cols_numeric -> min-max
+        #   3) cols_large -> log + min-max
+        idx_numeric = [all_cols.index(c) for c in cols_numeric]
+        X_aug[:, idx_numeric, :] = darkflow.min_max_normalize_np(X_aug[:, idx_numeric, :])
 
-    idx_large = [all_cols.index(c) for c in cols_large]
-    X_aug[:, idx_large, :] = darkflow.log_min_max_normalize_np(X_aug[:, idx_large, :])
+        idx_large = [all_cols.index(c) for c in cols_large]
+        X_aug[:, idx_large, :] = darkflow.log_min_max_normalize_np(X_aug[:, idx_large, :])
 
-    # Apply direction to other per-packet features
-    dir_idx = all_cols.index('pkt_dir_seq')
-    # shape: [C, T]
-    direction = X_aug[:, dir_idx, :]
-    for j, col in enumerate(all_cols):
-        if col == 'pkt_dir_seq':
-            continue
-        X_aug[:, j, :] = X_aug[:, j, :]*direction
+        # Apply direction to other per-packet features
+        dir_idx = all_cols.index('pkt_dir_seq')
+        # shape: [C, T]
+        direction = X_aug[:, dir_idx, :]
+        for j, col in enumerate(all_cols):
+            if col == 'pkt_dir_seq':
+                continue
+            X_aug[:, j, :] = X_aug[:, j, :]*direction
 
-    return X_aug  # [F, C, T]
+        return X_aug  # [F, C, T]
+    else:
+        return None
 
 def _find_related_flows(
     aug_config: "tcp_aug.TCPAugmentationConfig",
@@ -237,15 +240,16 @@ def build_flows(
         aug_config.target_seq_len,
     )  # [F, C, T]
 
-    F = aug_config.num_flows
-    if X.shape[0] < F:
-        pad = np.zeros(
-            (F - X.shape[0], X.shape[1], X.shape[2]),
-            dtype=np.float32,
-        )
-        X = np.concatenate([X, pad], axis=0)
-    if X.shape[0] > F:
-        X = X[:F]
+    if X is not None:
+        F = aug_config.num_flows
+        if X.shape[0] < F:
+            pad = np.zeros(
+                (F - X.shape[0], X.shape[1], X.shape[2]),
+                dtype=np.float32,
+            )
+            X = np.concatenate([X, pad], axis=0)
+        if X.shape[0] > F:
+            X = X[:F]
 
     return X  # [F, C, T]
 
@@ -270,7 +274,8 @@ def build_dataset(
         # X shape = [F, C, T]
         X = build_flows(simulator, row, fp_df, all_cols, aug_config)
         # log(f"X: {X.shape}")
-        all_data[cls_idx].append(X)
+        if X is not None:
+            all_data[cls_idx].append(X)
 
     F = aug_config.num_flows
     C = len(all_cols)
