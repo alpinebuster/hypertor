@@ -46,9 +46,17 @@ Run from `hypertor` project's root dir
 
 ```sh
 cd ./hypertor/aug/
-nohup python ./fp_multi_flows.py --dataset tcub --ratio 0.00001 --seed 2026 > fp_multi_flows_tcub_1e-05_seed_2026.log 2>&1 &
-nohup python ./fp_multi_flows.py --dataset all --ratio 0.00001 --seed "2015-2026" > fp_multi_flows_1e-05.log 2>&1 &
-nohup python ./fp_multi_flows.py --dataset all --ratio 1 --seed "2000-2026" > fp_multi_flows_1.0.log 2>&1 & 
+
+nohup python ./fp_multi_flows.py --dataset tcub --ratio 0.00001 --maxrate 0.365 --seed 2026 > fp_multi_flows_tcub_maxrate0.365_ratio1e-05_seed_2026.log 2>&1 &
+nohup python ./fp_multi_flows.py --dataset all --ratio 0.00001 --maxrate 0.365 --seed "2015-2026" > fp_multi_flows_maxrate0.365_ratio1e-05.log 2>&1 &
+nohup python ./fp_multi_flows.py --dataset all --ratio 1 --maxrate 0.165 --seed "2000-2014" > fp_multi_flows_maxrate0.165_ratio1.0.log 2>&1 & 
+
+nohup python ./fp_multi_flows.py --dataset safesurf2025 --ratio 1 --maxrate 0.165 --seed "2000-2014" > fp_multi_flows_safesurf_maxrate0.165_ratio1.0.log 2>&1 &
+nohup python ./fp_multi_flows.py --dataset safesurf2025 --ratio 1 --maxrate 0.365 --seed "2015-2026" > fp_multi_flows_safesurf_maxrate0.365_ratio1.0.log 2>&1 &
+nohup python ./fp_multi_flows.py --dataset safesurf2025 --ratio 0.001 --maxrate 0.165 --seed "2000-2014" > fp_multi_flows_safesurf_maxrate0.165_ratio1e-3.log 2>&1 &
+nohup python ./fp_multi_flows.py --dataset safesurf2025 --ratio 0.001 --maxrate 0.365 --seed "2015-2026" > fp_multi_flows_safesurf_maxrate0.365_ratio1e-3.log 2>&1 &
+nohup python ./fp_multi_flows.py --dataset safesurf2025 --ratio 0.00001 --maxrate 0.165 --seed "2000-2014" > fp_multi_flows_safesurf_maxrate0.165_ratio1e-5.log 2>&1 &
+nohup python ./fp_multi_flows.py --dataset safesurf2025 --ratio 0.00001 --maxrate 0.365 --seed "2015-2026" > fp_multi_flows_safesurf_maxrate0.365_ratio1e-5.log 2>&1 &
 
 pkill -f fp_multi_flows.py
 ```

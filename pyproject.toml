@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "hypertor"
-version = "1.5.28"
+version = "1.5.29"
 description = "Imbalanced darknet (Tor) traffic classification."
 authors = ["__z__ <imzqqq@hotmail.com>"]
 license = "AGPL-3.0-or-later"

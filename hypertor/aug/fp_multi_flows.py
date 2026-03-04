@@ -116,8 +116,6 @@ def _find_related_flows(
         _combined = _combined.head(aug_config.num_flows)
         return _combined.reset_index(drop=True)
 
-    # import pdb
-    # pdb.set_trace()
     # log(f"ja4: {row.ja4}, ja4t: {row.ja4t}, ja4l: {row.ja4l}")
     # log(f"\nja4t: {fp_df[fp_df["ja4t"] == row.ja4t].shape}")
     # log(f"\nja4: {fp_df[fp_df["ja4"] == row.ja4].shape}")
@@ -297,7 +295,6 @@ def build_dataset(
         dataset_max[cls_idx, :d.shape[0]] = d
         class_counts[classes[cls_idx]] = d.shape[0]
 
-    # import pdb;pdb.set_trace()
     return dataset, (dataset_max, class_counts)
 
 def csv2numpy(
@@ -311,6 +308,9 @@ def csv2numpy(
     elif dataset.lower() == "tcub":
         base_path = "../../data/tcub/csv"
         lpbase_path = "../../data/lptcub/csv"
+    elif dataset.lower() == "safesurf2025":
+        base_path = "../../data/safesurf2025/csv"
+        lpbase_path = "../../data/lpsafesurf2025/csv"
     else:
         raise RuntimeError("Wrong dataset")
 
@@ -322,7 +322,6 @@ def csv2numpy(
 
     df = pd.read_csv(base_file, encoding="utf-8-sig")
     log(f"raw: {df['label'].value_counts()}")
-    # import pdb;pdb.set_trace()
 
     if ratio == 1.:
         fp_df = None
@@ -345,7 +344,6 @@ def csv2numpy(
         )
         label_count = intersect_df['label'].value_counts(dropna=False)
         log(f"intersect label count:\n{label_count}")
-        import pdb;pdb.set_trace()
 
 
     df[["ja4_1", "ja4_2", "ja4_3"]] = df["ja4"].str.split("_", expand=True)
@@ -484,7 +482,7 @@ def _exp_tcub(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
 
 
 # flows: [1,3,6,9], sim: [none, nagle, shift, loss, all], seq_len: [30, 60, 90]
-def run_tcub_exp(num_flows, sim_name, seq_len, ratio, seed=2026):
+def run_tcub_exp(num_flows, sim_name, seq_len, ratio, maxrate, seed=2026):
     sim_flags = build_sim_flags(sim_name)
 
     tcub_aug_config = tcp_aug.TCPAugmentationConfig(
@@ -493,13 +491,13 @@ def run_tcub_exp(num_flows, sim_name, seq_len, ratio, seed=2026):
         drop_seq_len=3,
         num_flows=num_flows,
         seed=seed,
-        max_rate=0.165,
+        max_rate=maxrate,
     )
 
-    log(f"Running tcub exp: ratio={ratio}, flows={num_flows}, sim={sim_name}, len={seq_len}, seed={seed}")
+    log(f"Running tcub exp: ratio={ratio}, flows={num_flows}, sim={sim_name}, len={seq_len}, maxrate={maxrate}, seed={seed}")
     _exp_tcub(tcub_aug_config, ratio)
 
-def exp_tcub_flows(ratio, seed):
+def exp_tcub_flows(ratio, maxrate, seed):
     if ratio == 1.:
         flows = [1]
     else:
@@ -512,11 +510,10 @@ def exp_tcub_flows(ratio, seed):
         run_tcub_exp,
         ratio=ratio,
         seed=seed,
+        maxrate=maxrate,
     )
     for f, s, l in itertools.product(flows, sims, seq_lens):
         run_tcub_exp_partial(f, s, l)
-
-# exp_tcub_flows()
 
 
 # %% [markdown]
@@ -593,7 +590,7 @@ def _exp_cicdarknet(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
 
 
 # flows: [1], sim: [none, nagle, shift, loss, all], seq_len: [30, 60, 90]
-def run_cic_exp(num_flows, sim_name, seq_len, ratio, seed=2026):
+def run_cic_exp(num_flows, sim_name, seq_len, ratio, maxrate, seed=2026):
     sim_flags = build_sim_flags(sim_name)
 
     cic_aug_config = tcp_aug.TCPAugmentationConfig(
@@ -602,13 +599,13 @@ def run_cic_exp(num_flows, sim_name, seq_len, ratio, seed=2026):
         drop_seq_len=3,
         num_flows=num_flows,
         seed=seed,
-        max_rate=0.165,
+        max_rate=maxrate,
     )
 
-    log(f"Running cicdarknet exp: ratio={ratio}, flows={num_flows}, sim={sim_name}, len={seq_len}, seed={seed}")
+    log(f"Running cicdarknet exp: ratio={ratio}, flows={num_flows}, sim={sim_name}, len={seq_len}, maxrate={maxrate}, seed={seed}")
     _exp_cicdarknet(cic_aug_config, ratio)
 
-def exp_cic_flows(ratio, seed=2026):
+def exp_cic_flows(ratio, maxrate, seed=2026):
     flows = [1]
     sims = ["none", "nagle", "shift", "loss", "all"]
     seq_lens = [30, 60, 90]
@@ -617,11 +614,111 @@ def exp_cic_flows(ratio, seed=2026):
         run_cic_exp,
         ratio=ratio,
         seed=seed,
+        maxrate=maxrate,
     )
     for f, s, l in itertools.product(flows, sims, seq_lens):
         run_cic_exp_partial(f, s, l)
 
-# exp_cic_flows()
+
+# %% [markdown]
+# SafeSurf Darknet 2025
+
+# %%
+def _exp_safesurf_darknet(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
+    # csv -> pd -> numpy[all_classes, all_samples, F, C, T]
+    safesurf_dataset_5d, (safesurf_dataset_max_5d, safesurf_class_counts) = csv2numpy(aug_config, "safesurf2025", ratio)
+
+    if ratio == 1.:
+        _cache_subpath = "cache"
+    else:
+        _cache_subpath = f"cache_max_rate_{aug_config.max_rate}"
+    safesurf_cache_path = os.path.join(
+        HYPERTOR_DATA_PATH,
+        "safesurf2025",
+        _cache_subpath,
+        f"ratio_{ratio}",
+    )
+    if not os.path.exists(safesurf_cache_path):
+        os.makedirs(safesurf_cache_path, exist_ok=True)
+    sim_name = get_sim_name(aug_config)
+
+    file_name = (
+        f"safesurf_flows{aug_config.num_flows}"
+        f"_sim{sim_name}"
+        f"_len{aug_config.target_seq_len}"
+        f"_seed{aug_config.seed}_5d.npy"
+    )
+    np.save(
+        os.path.join(safesurf_cache_path, file_name),
+        safesurf_dataset_5d,
+    )
+    """
+    DARKFLOW - Safesurf (Drop seq len less than 3):
+    Ratio: 1.0
+       class browsing(id 0): 3283 samples
+       class chat(id 1): 229 samples
+       class email(id 2): 329 samples
+       class ftp(id 3): 1480 samples
+       class streaming(id 4): 2541 samples
+       class voip(id 5): 262 samples
+
+    Ratio: 0.001
+       class browsing(id 0):  samples
+       class chat(id 1):  samples
+       class email(id 2):  samples
+       class ftp(id 3):  samples
+       class streaming(id 4):  samples
+       class voip(id 5):  samples
+
+    Ratio: 1e-05
+       class browsing(id 0):  samples
+       class chat(id 1):  samples
+       class email(id 2):  samples
+       class ftp(id 3):  samples
+       class streaming(id 4):  samples
+       class voip(id 5):  samples
+    """
+    file_name_max = (
+        f"safesurf_flows{aug_config.num_flows}"
+        f"_sim{sim_name}"
+        f"_len{aug_config.target_seq_len}"
+        f"_seed{aug_config.seed}_max_5d.npy"
+    )
+    np.save(
+        os.path.join(safesurf_cache_path, file_name_max),
+        safesurf_dataset_max_5d,
+    )
+
+
+# flows: [1], sim: [none, nagle, shift, loss, all], seq_len: [30, 60, 90]
+def run_safesurf_exp(num_flows, sim_name, seq_len, ratio, maxrate, seed=2026):
+    sim_flags = build_sim_flags(sim_name)
+
+    safesurf_aug_config = tcp_aug.TCPAugmentationConfig(
+        **sim_flags,
+        target_seq_len=seq_len,
+        drop_seq_len=3,
+        num_flows=num_flows,
+        seed=seed,
+        max_rate=maxrate,
+    )
+
+    log(f"Running safesurf exp: ratio={ratio}, flows={num_flows}, sim={sim_name}, len={seq_len}, maxrate={maxrate}, seed={seed}")
+    _exp_safesurf_darknet(safesurf_aug_config, ratio)
+
+def exp_safesurf_flows(ratio, maxrate, seed=2026):
+    flows = [1, 3, 6, 9]
+    sims = ["none", "nagle", "shift", "loss", "all"]
+    seq_lens = [30, 60, 90]
+
+    run_safesurf_exp_partial = functools.partial(
+        run_safesurf_exp,
+        ratio=ratio,
+        seed=seed,
+        maxrate=maxrate,
+    )
+    for f, s, l in itertools.product(flows, sims, seq_lens):
+        run_safesurf_exp_partial(f, s, l)
 
 
 # %%
@@ -631,7 +728,13 @@ def parse_args():
         "--dataset",
         type=str,
         default="all",
-        help="Dataset name (e.g., tcub, cicdarknet and all)"
+        help="Dataset name (e.g., safesurf, tcub, cicdarknet and all)"
+    )
+    parser.add_argument(
+        "--maxrate",
+        type=float,
+        default=0.165,
+        help="Max sim rate (e.g., 0.165, 0.365)"
     )
     parser.add_argument(
         "--ratio",
@@ -659,13 +762,15 @@ def parse_seed(seed_str: str):
     else:
         return [int(seed_str)]
 
-def run_experiment(dataset, ratio, seed):
+def run_experiment(dataset, ratio, maxrate, seed):
     log(f"\nDataset: {dataset}, Ratio: {ratio}, Seed: {seed}")
 
     if dataset.lower() == "cicdarknet":
-        exp_cic_flows(ratio, seed)
+        exp_cic_flows(ratio, maxrate, seed)
     elif dataset.lower() == "tcub":
-        exp_tcub_flows(ratio, seed)
+        exp_tcub_flows(ratio, maxrate, seed)
+    elif dataset.lower() == "safesurf2025":
+        exp_safesurf_flows(ratio, maxrate, seed)
     else:
         raise RuntimeError("Wrong dataset!")
 
@@ -674,10 +779,11 @@ if __name__ == "__main__":
     args = parse_args()
     DATASET: str = args.dataset
     RATIO: float = args.ratio
+    MAXRATE: float = args.maxrate
     SEEDS = parse_seed(args.seed)
     cpus = os.cpu_count() or 1
     log(f"Total {cpus} CPUs")
-    log(f"Dataset: {DATASET}, Ratio: {RATIO}, Seeds: {SEEDS}")
+    log(f"Dataset: {DATASET}, Ratio: {RATIO}, Seeds: {SEEDS}, MAXRATE: {MAXRATE}")
 
     current_file = Path(__file__).resolve()
     current_dir = current_file.parent
@@ -686,22 +792,22 @@ if __name__ == "__main__":
     log(f"current_dir: {current_dir}")
     log(f"HYPERTOR_DATA_PATH: {HYPERTOR_DATA_PATH}")
 
-    # run_experiment(DATASET, RATIO, 2026)
+    # run_experiment(DATASET, RATIO, MAXRATE, 2026)
 
     # If `max_workers` is not specified, it defaults to the number of CPU cores
     tasks = []
     if DATASET.lower() == "all":
-        datasets = ["cicdarknet", "tcub"]
+        datasets = ["cicdarknet", "tcub", "safesurf2025"]
     else:
         datasets = [DATASET]
     for seed in SEEDS:
         for ds in datasets:
-            tasks.append((ds, RATIO, seed))
+            tasks.append((ds, RATIO, MAXRATE, seed))
 
     with ProcessPoolExecutor(max_workers=min(len(tasks), cpus-1)) as executor:
         futures = [
-            executor.submit(run_experiment, ds, ratio, seed)
-            for ds, ratio, seed in tasks
+            executor.submit(run_experiment, ds, ratio, maxrate, seed)
+            for ds, ratio, maxrate, seed in tasks
         ]
 
         for future in futures:
