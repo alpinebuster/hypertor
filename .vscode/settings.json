@@ -37,6 +37,7 @@
         "pkill",
         "preds",
         "randn",
+        "safesurf",
         "scikit",
         "scipy",
         "semisupervised",
