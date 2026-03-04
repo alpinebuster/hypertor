@@ -344,6 +344,7 @@ def csv2numpy(
         )
         label_count = intersect_df['label'].value_counts(dropna=False)
         log(f"intersect label count:\n{label_count}")
+        # import pdb;pdb.set_trace()
 
 
     df[["ja4_1", "ja4_2", "ja4_3"]] = df["ja4"].str.split("_", expand=True)
@@ -663,20 +664,20 @@ def _exp_safesurf_darknet(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
        class voip(id 5): 262 samples
 
     Ratio: 0.001
-       class browsing(id 0):  samples
-       class chat(id 1):  samples
-       class email(id 2):  samples
-       class ftp(id 3):  samples
-       class streaming(id 4):  samples
-       class voip(id 5):  samples
+       class browsing(id 0): 36 samples
+       class chat(id 1): 14 samples
+       class email(id 2): 34 samples
+       class ftp(id 3): 26 samples
+       class streaming(id 4): 50 samples
+       class voip(id 5): 12 samples
 
     Ratio: 1e-05
-       class browsing(id 0):  samples
-       class chat(id 1):  samples
-       class email(id 2):  samples
-       class ftp(id 3):  samples
-       class streaming(id 4):  samples
-       class voip(id 5):  samples
+       class browsing(id 0): 6 samples
+       class chat(id 1): 2 samples
+       class email(id 2): 2 samples
+       class ftp(id 3): 8 samples
+       class streaming(id 4): 3 samples
+       class voip(id 5): 2 samples
     """
     file_name_max = (
         f"safesurf_flows{aug_config.num_flows}"
