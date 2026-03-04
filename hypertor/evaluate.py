@@ -24,6 +24,11 @@ from hypertor.core import util
 FLAGS = flags.FLAGS
 
 DS_PRESETS = {
+    "safesurf2025": {
+        "train": "safesurf2025:0-5",
+        "val": "safesurf2025:0-5",
+        "test": "safesurf2025:0-5",
+    },
     "cicdarknet": {
         "train": "cicdarknet:0-6",
         "val": "cicdarknet:0-6",

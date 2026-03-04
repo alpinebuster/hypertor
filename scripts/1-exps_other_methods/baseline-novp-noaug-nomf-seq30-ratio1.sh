@@ -5,6 +5,9 @@
 # 2) CICDARKNET:
 #    `nohup ./scripts/1-exps_other_methods/baseline-novp-noaug-nomf-seq30-ratio1.sh --data_numpy_dir=./data/cicdarknet/cache --train_log_dir=./data/cicdarknet/logs/1-exps_other_methods/cicdarknet-baseline-novp-noaug-nomf-seq30-ratio1 --train_dataset='cicdarknet:0-6' --test_dataset='cicdarknet:0-6' --eval_datasets='cicdarknet' > cicdarknet-baseline-novp-noaug-nomf-seq30-ratio1.log 2>&1 &`
 # 
+# 3) SafeSurf2025:
+#    `nohup ./scripts/1-exps_other_methods/baseline-novp-noaug-nomf-seq30-ratio1.sh --data_numpy_dir=./data/safesurf2025/cache --train_log_dir=./data/safesurf2025/logs/1-exps_other_methods/safesurf2025-baseline-novp-noaug-nomf-seq30-ratio1 --train_dataset='safesurf2025:0-5' --test_dataset='safesurf2025:0-5' --eval_datasets='safesurf2025' > safesurf2025-baseline-novp-noaug-nomf-seq30-ratio1.log 2>&1 &`
+# 
 python -m hypertor.train --num_layerwise_features=8 --default_num_channels=8 \
   --samples_transformer=35 --samples_cnn=70 --num_labels=7 --learning_rate=5e-4 \
   --train_steps=4000000 --steps_between_saves=1000 --lw_key_query_dim=1.0 \
