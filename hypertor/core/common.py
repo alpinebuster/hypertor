@@ -4,6 +4,7 @@ import functools
 import dataclasses
 import os
 import time
+import re
 
 from typing import cast, TYPE_CHECKING, Callable, Optional, \
     Union
@@ -73,6 +74,31 @@ class TrainState:
             pt_file_name = f"{self.checkpoint_suffix}-{self.global_step}-{self.vp_state.step_updated}.pt"
         else:
             pt_file_name = f"{self.checkpoint_suffix}-{self.global_step}.pt"
+
+        # Clean up old `*.pt` files
+        for file in os.listdir(self.checkpoint_dir):
+            if not file.endswith(".pt"):
+                continue
+
+            # With step_updated
+            match_vp = re.match(
+                rf"{re.escape(self.checkpoint_suffix)}-(\d+)-(\d+)\.pt", file,
+            )
+            # Only global_step
+            match_gs = re.match(
+                rf"{re.escape(self.checkpoint_suffix)}-(\d+)\.pt",
+                file,
+            )
+
+            if self.vp_state is not None and match_vp:
+                _gs, _step_updated = map(int, match_vp.groups())
+                if _gs == self.global_step and _step_updated < self.vp_state.step_updated:
+                    os.remove(os.path.join(self.checkpoint_dir, file))
+            elif self.vp_state is None and match_gs:
+                _gs = int(match_gs.group(1))
+                if _gs < self.global_step:
+                    os.remove(os.path.join(self.checkpoint_dir, file))
+
         path = os.path.join(
             self.checkpoint_dir,
             pt_file_name,
