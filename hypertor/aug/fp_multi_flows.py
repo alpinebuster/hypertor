@@ -442,7 +442,7 @@ def _exp_tcub(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
         tcub_dataset_5d,
     )
     """
-    DARKFLOW - TCUB (Drop seq len less than 3):
+    DARKFLOW - TCUB (FP + Drop seq len less than 3):
     Ratio: 1.0
        class browsing(id 0): 642 samples
        class chat(id 1): 207 samples
@@ -549,7 +549,7 @@ def _exp_cicdarknet(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
         cic_dataset_5d,
     )
     """
-    DARKFLOW - CICDarknet (Drop seq len less than 3):
+    DARKFLOW - CICDarknet (FP + Drop seq len less than 3):
     Ratio: 1.0
        class browsing(id 0): 62 samples
        class chat(id 1): 16 samples
@@ -653,7 +653,7 @@ def _exp_safesurf_darknet(aug_config: "tcp_aug.TCPAugmentationConfig", ratio):
         safesurf_dataset_5d,
     )
     """
-    DARKFLOW - Safesurf (Drop seq len less than 3):
+    DARKFLOW - Safesurf (FP + Drop seq len less than 3):
     Ratio: 1.0
        class browsing(id 0): 3283 samples
        class chat(id 1): 229 samples
