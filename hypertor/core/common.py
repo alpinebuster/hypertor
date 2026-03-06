@@ -92,7 +92,7 @@ class TrainState:
 
             if self.vp_state is not None and match_vp:
                 _gs, _step_updated = map(int, match_vp.groups())
-                if _gs == self.global_step and _step_updated < self.vp_state.step_updated:
+                if _gs < self.global_step and _step_updated == self.vp_state.step_updated:
                     os.remove(os.path.join(self.checkpoint_dir, file))
             elif self.vp_state is None and match_gs:
                 _gs = int(match_gs.group(1))
