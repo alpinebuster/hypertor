@@ -503,7 +503,6 @@ def exp_tcub_flows(ratio, maxrate, seed):
         flows = [1]
     else:
         flows = [1, 3, 6, 9]
-
     sims = ["none", "nagle", "shift", "loss", "all"]
     seq_lens = [30, 60, 90]
 
@@ -708,7 +707,10 @@ def run_safesurf_exp(num_flows, sim_name, seq_len, ratio, maxrate, seed=2026):
     _exp_safesurf_darknet(safesurf_aug_config, ratio)
 
 def exp_safesurf_flows(ratio, maxrate, seed=2026):
-    flows = [1, 3, 6, 9]
+    if ratio == 1.:
+        flows = [1]
+    else:
+        flows = [1, 3, 6, 9]
     sims = ["none", "nagle", "shift", "loss", "all"]
     seq_lens = [30, 60, 90]
 

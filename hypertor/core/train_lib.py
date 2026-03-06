@@ -55,6 +55,8 @@ def _get_cached_npy_filename_prefix(data_config: DatasetConfig) -> tuple[str, st
         prefix_ds_name = "cic"
     elif data_config.dataset_name == "tcub":
         prefix_ds_name = "tcub"
+    elif data_config.dataset_name == "safesurf2025":
+        prefix_ds_name = "safesurf2025"
     else:
         raise RuntimeError("Wrong dataset")
     prefix = (
