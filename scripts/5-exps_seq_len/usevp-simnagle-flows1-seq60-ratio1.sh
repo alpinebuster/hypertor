@@ -9,4 +9,4 @@
   --use_variable_proto \
   --darknet_ratio=1 --num_flows=1 --tcp_seq_len=60 \
   --simulate_nagle --nosimulate_packet_shift --nosimulate_packet_loss \
-  --gpus=0 $@
+  --gpus=1 $@
