@@ -3,7 +3,7 @@
 # 
 # docker compose build --progress=plain
 # docker compose up -d
-# docker attach hypertor
+# docker exec -it hypertor bash
 #
 services:
   hypertor:
@@ -19,6 +19,13 @@ services:
     shm_size: 64g
     runtime: nvidia
     pid: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
