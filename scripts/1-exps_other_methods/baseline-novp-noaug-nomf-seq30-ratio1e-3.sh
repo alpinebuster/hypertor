@@ -10,4 +10,4 @@
 # 
 ./scripts/1-exps_other_methods/baseline-novp-noaug-nomf-seq30-ratio1.sh \
   --darknet_ratio=0.001 \
-  --gpus=0 $@
+  --gpus=1 $@

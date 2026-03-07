@@ -11,4 +11,4 @@
   --nouse_variable_proto \
   --darknet_ratio=0.001 --num_flows=3 \
   --simulate_nagle --nosimulate_packet_shift --nosimulate_packet_loss \
-  --gpus=1 $@
+  --gpus=0 $@
