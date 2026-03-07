@@ -16,5 +16,6 @@ WORKDIR /root/workspace
 COPY pyproject.toml poetry.lock* /root/workspace/
 RUN poetry install --no-root --no-interaction
 RUN echo "source $(poetry env info --path)/bin/activate" >> /root/.bashrc
+RUN git config --global --add safe.directory /root/workspace
 
 CMD ["/bin/bash"]
