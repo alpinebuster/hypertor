@@ -17,7 +17,7 @@ services:
     volumes:
       - ./:/root/workspace
     shm_size: 64g
-    gpus: all
+    runtime: nvidia
     pid: host
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
