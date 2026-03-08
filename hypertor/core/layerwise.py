@@ -572,7 +572,8 @@ class BaseCNNLayer(nn.Module):
                     var_weight_mag = var_param.pow(2).sum()
                     reg = self.var_reg_weight * built_weight_mag / (1e-8 + var_weight_mag)
                     self._extra_losses.append(reg)
-                built_weights += var_param
+                # NOTE: DO NOT use `built_weights += var_param` as it's an inplace OP
+                built_weights = built_weights + var_param
 
         # 3) Kernel L2 reg
         if self.l2_reg_weight and self.l2_reg_weight > 0.0 and short_name.endswith("kernel"):
