@@ -1,4 +1,4 @@
-# Call `./scripts/darkflow_1shot.sh` from the project root directory with following flags::
+# Call `./scripts/darkflow_1shot.sh` from the project root directory with following flags:
 # 
 #   --data_numpy_dir=<darkflow_cache>
 #   --train_log_dir=<output_path>
