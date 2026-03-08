@@ -5,7 +5,7 @@
 # 2) CICDARKNET: NO enough FP data
 #
 # 3) SafeSurf2025:
-#    `nohup ./scripts/3-exps_variable_prototypes/novp-simnagle-flows3-seq30-ratio1e-3.sh --data_numpy_dir=./data/safesurf2025/cache --train_log_dir=./data/safesurf2025/logs/3-exps_variable_prototypes/safesurf2025-novp-simnagle-flows3-seq30-ratio1e-3 --num_labels=6 --train_dataset='safesurf2025:0-5' --test_dataset='safesurf2025:0-5' --eval_datasets='safesurf2025' > safesurf2025-novp-simnagle-flows3-seq30-ratio1e-3.log 2>&1 &`
+#    `nohup ./scripts/3-exps_variable_prototypes/novp-simnagle-flows3-seq30-ratio1e-3.sh --data_numpy_dir=./data/safesurf2025/cache --train_log_dir=./data/safesurf2025/logs/3-exps_variable_prototypes/safesurf2025-novp-simnagle-flows3-seq30-ratio1e-3 --samples_transformer=30 --samples_cnn=42 --num_labels=6 --train_dataset='safesurf2025:0-5' --test_dataset='safesurf2025:0-5' --eval_datasets='safesurf2025' > safesurf2025-novp-simnagle-flows3-seq30-ratio1e-3.log 2>&1 &`
 # 
 ./scripts/1-exps_other_methods/baseline-novp-noaug-nomf-seq30-ratio1.sh \
   --nouse_variable_proto \
