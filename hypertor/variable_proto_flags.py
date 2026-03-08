@@ -42,7 +42,7 @@ flags.DEFINE_bool(
 flags.DEFINE_bool(
     "use_prior_proto",
     True,
-    "If True and `use_variable_proto` is enabled, a prototype–class prior is added to the hyper-generated weights of the last layer.",
+    "If True and `use_variable_proto` is enabled, a prototype class prior is added to the hyper-generated weights of the last layer.",
 )
 flags.DEFINE_bool(
     "use_l_mask",
