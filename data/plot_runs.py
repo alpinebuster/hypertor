@@ -38,7 +38,7 @@ def plot_vp_training(log_dirs: list[str], save_path: str, trim_step=50000, smoot
     df = df[df['step'] <= trim_step]
     df['value_smooth'] = df.groupby('run')['value'].transform(lambda x: x.rolling(smooth_window, min_periods=1).mean())
 
-    # sns.set(style='whitegrid')
+    sns.set_theme(style='whitegrid')
     # plt.figure(figsize=(8,6))
     palette = sns.color_palette("viridis", n_colors=df['run'].nunique())
     sns.lineplot(
@@ -73,6 +73,7 @@ def plot_vp_training(log_dirs: list[str], save_path: str, trim_step=50000, smoot
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.show()
 
+
 # %%
 log_dirs_1push = [
     './cicdarknet/logs/2-exps_tcp_augmentation/cicdarknet-usevp-simnagle-nomf-seq30-ratio1e-5/train-0',
@@ -80,6 +81,7 @@ log_dirs_1push = [
 ]
 save_path_1push = 'vp_training_1push.png'
 plot_vp_training(log_dirs_1push, save_path_1push, smooth_window=6)
+
 
 # %%
 log_dirs_2push = [
@@ -90,34 +92,13 @@ log_dirs_2push = [
 save_path_2push = 'vp_training_2push.png'
 plot_vp_training(log_dirs_2push, save_path_2push, 30000, smooth_window=6)
 
+
 # %%
 log_dirs_3push = [
-    './cicdarknet/logs/2-exps_tcp_augmentation/cicdarknet-usevp-simnagle-nomf-seq30-ratio1e-5/train-0',
-    './cicdarknet/logs/2-exps_tcp_augmentation/cicdarknet-usevp-simnagle-nomf-seq30-ratio1e-5/train-10000',
+    './tcub/logs/4-exps_multi_flows/tcub-usevp-simnagle-flows6-seq30-ratio1e-3/train-0',
+    './tcub/logs/4-exps_multi_flows/tcub-usevp-simnagle-flows6-seq30-ratio1e-3/train-10000',
+    './tcub/logs/4-exps_multi_flows/tcub-usevp-simnagle-flows6-seq30-ratio1e-3/train-26000',
+    './tcub/logs/4-exps_multi_flows/tcub-usevp-simnagle-flows6-seq30-ratio1e-3/train-54000',
 ]
 save_path_3push = 'vp_training_3push.png'
-plot_vp_training(log_dirs_3push, save_path_3push)
-
-# %%
-log_dirs_4push = [
-    './cicdarknet/logs/2-exps_tcp_augmentation/cicdarknet-usevp-simnagle-nomf-seq30-ratio1e-5/train-0',
-    './cicdarknet/logs/2-exps_tcp_augmentation/cicdarknet-usevp-simnagle-nomf-seq30-ratio1e-5/train-10000',
-]
-save_path_4push = 'vp_training_4push.png'
-plot_vp_training(log_dirs_4push, save_path_4push)
-
-# %%
-log_dirs_5push = [
-    './cicdarknet/logs/2-exps_tcp_augmentation/cicdarknet-usevp-simnagle-nomf-seq30-ratio1e-5/train-0',
-    './cicdarknet/logs/2-exps_tcp_augmentation/cicdarknet-usevp-simnagle-nomf-seq30-ratio1e-5/train-10000',
-]
-save_path_5push = 'vp_training_5push.png'
-plot_vp_training(log_dirs_3push, save_path_5push)
-
-# %%
-log_dirs_6push = [
-    './cicdarknet/logs/2-exps_tcp_augmentation/cicdarknet-usevp-simnagle-nomf-seq30-ratio1e-5/train-0',
-    './cicdarknet/logs/2-exps_tcp_augmentation/cicdarknet-usevp-simnagle-nomf-seq30-ratio1e-5/train-10000',
-]
-save_path_6push = 'vp_training_6push.png'
-plot_vp_training(log_dirs_3push, save_path_6push)
+plot_vp_training(log_dirs_3push, save_path_3push, 30000, smooth_window=6)
