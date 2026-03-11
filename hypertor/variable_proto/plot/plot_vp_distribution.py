@@ -1,6 +1,8 @@
 # %%
 """
 ## Class info
+# ratio -> 1.0, 0.001, 1e-05
+
 ### cicdarknet & tcub
 ```txt
 class browsing(id 0)
@@ -24,48 +26,89 @@ class voip(id 6)
 ```
 """
 
+
+# %%
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-# ratio -> 1.0, 0.001, 1e-05
-data_r1_0 = {
-    "cic_noaug":   [1,1,1,1,1,2,2],
-    "cic_simnagle":[2,2,1,1,2,4,2], # v
-    "cic_simall":  [1,1,1,1,1,2,2], # v
+# %%
+def plot_vp_heatmap(vpdata: dict[str, list], ratio: float):
+    df = pd.DataFrame(vpdata)
+    df.index.name = "class"
 
-    "tcub_noaug":   [1,1,1,1,1,2,2],
-    "tcub_simnagle":[3,4,2,2,1,1,1], # v
-    "tcub_simall":  [2,1,2,1,1,1,1], # v
+    plt.figure(figsize=(6,5), dpi=300)
+    print(plt.colormaps())
+    ax = sns.heatmap(
+        df,
+        # annot=True,
+        cmap="viridis", # YlOrRd, viridis, magma, YlGnBu, RdBu_r, coolwarm
+        # linewidths=0.5,
+        vmin=0,
+        vmax=5,
+    )
+    n_cols = df.shape[1]
+    for x in range(1, n_cols):
+        ax.axvline(x, color="white", linewidth=0.1)
+
+    group_size = 3
+    for x in range(group_size, n_cols, group_size):
+        ax.axvline(x, color="white", linewidth=0.6)
+
+    plt.title("Prototypes")
+    # plt.xlabel("Datasets")
+    plt.ylabel("Class")
+    plt.xticks(rotation=45, ha="right")
+    plt.tight_layout()
+
+    plt.savefig(f"prototype_heatmap_ratio{ratio}.png", dpi=300, bbox_inches="tight")
+    plt.show()
+
+
+data_r1_0 = {
+    "cic_noaug":   [1,2,2,2,4,1,1],
+    "cic_simnagle":[2,2,1,1,2,4,2],
+    "cic_simall":  [1,2,1,1,1,2,2],
+
+    "tcub_noaug":   [2,1,1,1,1,2,2],
+    "tcub_simnagle":[3,4,2,2,1,1,1],
+    "tcub_simall":  [2,1,2,1,1,1,1],
     
     # class p2p(id 4) - MOCK as 0
-    "safesurf_noaug":   [1,1,1,1,0,1,2],
-    "safesurf_simnagle":[2,2,1,3,0,5,2], # v
-    "safesurf_simall":  [3,2,2,2,0,1,2], # v
+    "safesurf_noaug":   [1,2,2,4,0,1,1],
+    "safesurf_simnagle":[1,2,2,4,0,1,3],
+    "safesurf_simall":  [2,2,1,1,0,1,1],
 }
+data_r1_e__03 = {
+    "cic_noaug":   [2,2,1,1,1,1,2],
+    "cic_simnagle":[1,2,1,2,1,1,1],
+    "cic_simall":  [1,2,2,1,1,1,1],
 
-df_r1_0 = pd.DataFrame(data_r1_0)
-df_r1_0.index.name = "class"
+    "tcub_noaug":   [5,1,1,1,1,3,1],
+    "tcub_simnagle":[3,3,1,3,1,1,1],
+    "tcub_simall":  [2,2,2,2,2,1,2],
+    
+    # class p2p(id 4) - MOCK as 0
+    "safesurf_noaug":   [2,2,1,1,0,1,1],
+    "safesurf_simnagle":[2,2,1,1,0,1,2],
+    "safesurf_simall":  [2,2,4,2,0,1,1],
+}
+data_r1_e__05 = {
+    "cic_noaug":   [2,3,1,3,1,1,2],
+    "cic_simnagle":[1,2,2,1,1,1,1],
+    "cic_simall":  [1,2,2,2,1,3,1],
 
-plt.figure(figsize=(6,5), dpi=300)
-print(plt.colormaps())
-ax = sns.heatmap(
-    df_r1_0,
-    # annot=True,
-    # cmap="crest", # YlOrRd, viridis
-    # linewidths=0.5,
-)
-n_cols = df_r1_0.shape[1]
-for x in range(1, n_cols):
-    ax.axvline(x, color="white", linewidth=0.1)
-
-plt.title("Prototypes")
-# plt.xlabel("Datasets")
-plt.ylabel("Class")
-plt.xticks(rotation=45, ha="right")
-plt.tight_layout()
-
-plt.savefig("prototype_heatmap_ratio1.0.png", dpi=300, bbox_inches="tight")
-plt.show()
+    "tcub_noaug":   [2,3,2,1,1,1,3],
+    "tcub_simnagle":[2,1,2,1,1,1,3],
+    "tcub_simall":  [2,1,1,1,2,2,1],
+    
+    # class p2p(id 4) - MOCK as 0
+    "safesurf_noaug":   [2,2,1,4,0,3,2],
+    "safesurf_simnagle":[2,2,1,2,0,1,1],
+    "safesurf_simall":  [1,2,3,2,0,2,2],
+}
+plot_vp_heatmap(data_r1_0, 1.0)
+plot_vp_heatmap(data_r1_e__03, 1e-03)
+plot_vp_heatmap(data_r1_e__05, 1e-05)
 
 # %%
