@@ -194,3 +194,35 @@ log_dirs_vp_cic = [
 plot_usevp(log_dirs_vp_cic, 'cic-usevp_ratio1e-5.png', 40000, smooth_window=6)
 
 # %%
+log_dirs_vp_tcub = [
+    './tcub/logs/1-exps_other_methods/tcub-baseline-novp-noaug-nomf-seq30-ratio1e-3/train',
+    './tcub/logs/3-exps_variable_prototypes/tcub-usevp-noaug-nomf-seq30-ratio1e-3/train-55000',
+]
+plot_usevp(log_dirs_vp_tcub, 'tcub-usevp_ratio1e-3.png', 35000, smooth_window=6)
+
+
+# %%
+log_dirs_vp_tcub = [
+    './tcub/logs/1-exps_other_methods/tcub-baseline-novp-noaug-nomf-seq30-ratio1e-5/train',
+    './tcub/logs/3-exps_variable_prototypes/tcub-usevp-noaug-nomf-seq30-ratio1e-5/train-35000',
+]
+plot_usevp(log_dirs_vp_tcub, 'tcub-usevp_ratio1e-5.png', 35000, smooth_window=6)
+
+# %%
+log_dirs_vp_safesurf = [
+    './safesurf2025/logs/1-exps_other_methods/safesurf2025-baseline-novp-noaug-nomf-seq30-ratio1e-3/train',
+    './safesurf2025/logs/3-exps_variable_prototypes/safesurf2025-usevp-noaug-nomf-seq30-ratio1e-3/train-0',
+]
+plot_usevp(log_dirs_vp_safesurf, 'safesurf2025-usevp_ratio1e-3.png', 35000, smooth_window=6)
+
+
+# %%
+log_dirs_vp_safesurf = [
+    './safesurf2025/logs/1-exps_other_methods/safesurf2025-baseline-novp-noaug-nomf-seq30-ratio1e-5/train',
+    './safesurf2025/logs/3-exps_variable_prototypes/safesurf2025-usevp-noaug-nomf-seq30-ratio1e-5/train-55000',
+]
+plot_usevp(log_dirs_vp_safesurf, 'safesurf2025-usevp_ratio1e-5.png', 35000, smooth_window=6)
+
+
+
+# %%
