@@ -344,4 +344,94 @@ log_dirs_mf_tcub = [
 ]
 plot_usemf(log_dirs_mf_tcub, 'tcub-usemf_ratio1e-5.png', 30000, smooth_window=6)
 
+
+# %%
+def plot_seqlen(
+    log_dirs: list[str],
+    save_path: str,
+    trim_step=50000,
+    smooth_window=12,
+):
+    tag_to_plot = 'accuracy/accuracy'
+
+    all_data = []
+    for idx, run_path in enumerate(log_dirs):
+        print(f"\nrun_path: {run_path}")
+        if not os.path.isdir(run_path):
+            continue
+
+        ea = event_accumulator.EventAccumulator(run_path)
+        ea.Reload()
+
+        scalar_tags = ea.Tags()['scalars']
+        print("Scalars tags in this run:")
+        for tag in scalar_tags:
+            print(tag)
+
+        if tag_to_plot not in ea.Tags()['scalars']:
+            continue
+
+        scalar_data = ea.Scalars(tag_to_plot)
+        if idx == 0:
+            run_name = "seq30"
+        elif idx == 1:
+            run_name = "seq60"
+        else:
+            run_name = "seq90"
+        for x in scalar_data:
+            all_data.append({
+                'step': x.step,
+                'value': x.value,
+                'run': run_name,
+            })
+
+    df = pd.DataFrame(all_data)
+    print(df.head())
+    df = df[df['step'] <= trim_step]
+    df['value_smooth'] = df.groupby('run')['value'].transform(lambda x: x.rolling(smooth_window, min_periods=1).mean())
+
+    sns.set_theme(style='whitegrid')
+    # plt.figure(figsize=(8,6))
+    # YlOrRd, viridis, magma, YlGnBu, RdBu_r, coolwarm
+    palette = sns.color_palette("YlGnBu", n_colors=df['run'].nunique())
+    sns.lineplot(
+        data=df,
+        x='step',
+        y='value',
+        hue='run',
+        style='run',
+        palette=palette,
+        markers=False, dashes=False,
+        linewidth=1,
+        alpha=0.3, # The original curve is semi-transparent.
+        legend=False, # Do not display the legend repeatedly
+    )
+    sns.lineplot(
+        data=df,
+        x='step',
+        y='value_smooth',
+        hue='run',
+        style='run',
+        palette=palette,
+        markers=False, dashes=False,
+        linewidth=2,
+    )
+
+    # plt.title('Accuracy across multiple runs')
+    plt.xlabel('Step')
+    plt.ylabel('Accuracy')
+    plt.legend(title='Run')
+    plt.tight_layout()
+
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.show()
+
+# %%
+log_dirs_seqlen_safesurf = [
+    './safesurf2025/logs/2-exps_tcp_augmentation/safesurf2025-usevp-simnagle-nomf-seq30-ratio1e-3/train-42000',
+    './safesurf2025/logs/5-exps_seq_len/safesurf2025-usevp-simnagle-nomf-seq60-ratio1e-3/train-28000',
+    './safesurf2025/logs/5-exps_seq_len/safesurf2025-usevp-simnagle-nomf-seq90-ratio1e-3/train-0',
+]
+plot_seqlen(log_dirs_seqlen_safesurf, 'safesurf2025-seqlen_ratio1e-3.png', 30000, smooth_window=9)
+
 # %%
