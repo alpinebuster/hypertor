@@ -225,6 +225,28 @@ plot_usevp(log_dirs_vp_safesurf, 'safesurf2025-usevp_ratio1e-5.png', 35000, smoo
 
 
 # %%
+log_dirs_vp_safesurf = [
+    './safesurf2025/logs/2-exps_tcp_augmentation/safesurf2025-novp-simnagle-nomf-seq30-ratio1e-3/train',
+    './safesurf2025/logs/2-exps_tcp_augmentation/safesurf2025-usevp-simnagle-nomf-seq30-ratio1e-3/train-42000',
+]
+plot_usevp(log_dirs_vp_safesurf, 'safesurf2025-usevp_simnagle_ratio1e-3.png', 27000, smooth_window=6)
+
+# %%
+log_dirs_vp_safesurf = [
+    './safesurf2025/logs/3-exps_variable_prototypes/safesurf2025-novp-simnagle-flows3-seq30-ratio1e-3/train',
+    './safesurf2025/logs/4-exps_multi_flows/safesurf2025-usevp-simnagle-flows3-seq30-ratio1e-3/train-0',
+]
+plot_usevp(log_dirs_vp_safesurf, 'safesurf2025-usevp_simnagle_flows3_ratio1e-3.png', 28000, smooth_window=6)
+
+# %%
+log_dirs_vp_safesurf = [
+    './safesurf2025/logs/2-exps_tcp_augmentation/safesurf2025-novp-simnagle-nomf-seq30-ratio1e-5/train',
+    './safesurf2025/logs/2-exps_tcp_augmentation/safesurf2025-usevp-simnagle-nomf-seq30-ratio1e-5/train-8000',
+]
+plot_usevp(log_dirs_vp_safesurf, 'safesurf2025-usevp_simnagle_ratio1e-5.png', 35000, smooth_window=6)
+
+
+# %%
 def plot_usemf(
     log_dirs: list[str],
     save_path: str,
