@@ -31,6 +31,15 @@ class voip(id 6)
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+
+# `fc-list :lang=zh`
+for f in fm.fontManager.ttflist:
+    print(f.name)
+
+# plt.rcParams['font.family'] = ['TeX Gyre Termes', 'AR PL UMing CN']
+# plt.rcParams['axes.unicode_minus'] = False
+
 
 # %%
 def plot_vp_heatmap(vpdata: dict[str, list], ratio: float):
@@ -56,11 +65,14 @@ def plot_vp_heatmap(vpdata: dict[str, list], ratio: float):
         ax.axvline(x, color="white", linewidth=0.6)
 
     plt.title("Prototypes")
+    # plt.title("原型")
     # plt.xlabel("Datasets")
     plt.ylabel("Class")
+    # plt.ylabel("类别")
     plt.xticks(rotation=45, ha="right")
     plt.tight_layout()
 
+    # plt.savefig(f"prototype_heatmap_ratio{ratio}-zh.png", dpi=300, bbox_inches="tight")
     plt.savefig(f"prototype_heatmap_ratio{ratio}.png", dpi=300, bbox_inches="tight")
     plt.show()
 
