@@ -4,6 +4,16 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from tensorboard.backend.event_processing import event_accumulator
+import matplotlib.font_manager as fm
+
+# `fc-list :lang=zh`
+for f in fm.fontManager.ttflist:
+    print(f.name)
+
+sns.set_theme(style='whitegrid')
+plt.rcParams['font.family'] = ['TeX Gyre Termes', 'AR PL UMing CN']
+plt.rcParams['axes.unicode_minus'] = False
+
 
 # %%
 def plot_vp_training(log_dirs: list[str], save_path: str, trim_step=50000, smooth_window=12):
@@ -39,7 +49,6 @@ def plot_vp_training(log_dirs: list[str], save_path: str, trim_step=50000, smoot
     df = df[df['step'] <= trim_step]
     df['value_smooth'] = df.groupby('run')['value'].transform(lambda x: x.rolling(smooth_window, min_periods=1).mean())
 
-    sns.set_theme(style='whitegrid')
     # plt.figure(figsize=(8,6))
     palette = sns.color_palette("viridis", n_colors=df['run'].nunique())
     sns.lineplot(
@@ -66,12 +75,15 @@ def plot_vp_training(log_dirs: list[str], save_path: str, trim_step=50000, smoot
     )
 
     # plt.title('Accuracy across multiple runs')
-    plt.xlabel('Step')
-    plt.ylabel('Accuracy')
-    plt.legend(title='Run')
+    plt.xlabel('训练步骤')
+    plt.ylabel('准确率')
+    plt.legend(title='实验')
+    # plt.xlabel('Step')
+    # plt.ylabel('Accuracy')
+    # plt.legend(title='Run')
     plt.tight_layout()
 
-    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.savefig(save_path, dpi=365, bbox_inches="tight")
     plt.show()
 
 
@@ -80,7 +92,7 @@ log_dirs_1push = [
     './cicdarknet/logs/2-exps_tcp_augmentation/cicdarknet-usevp-simnagle-nomf-seq30-ratio1e-5/train-0',
     './cicdarknet/logs/2-exps_tcp_augmentation/cicdarknet-usevp-simnagle-nomf-seq30-ratio1e-5/train-10000',
 ]
-save_path_1push = 'vp_training_1push.png'
+save_path_1push = 'vp_training_1push-zh.png'
 plot_vp_training(log_dirs_1push, save_path_1push, smooth_window=6)
 
 
@@ -90,7 +102,7 @@ log_dirs_2push = [
     './cicdarknet/logs/3-exps_variable_prototypes/cicdarknet-usevp-noaug-nomf-seq30-ratio1/train-43000',
     './cicdarknet/logs/3-exps_variable_prototypes/cicdarknet-usevp-noaug-nomf-seq30-ratio1/train-54000',
 ]
-save_path_2push = 'vp_training_2push.png'
+save_path_2push = 'vp_training_2push-zh.png'
 plot_vp_training(log_dirs_2push, save_path_2push, 30000, smooth_window=6)
 
 
@@ -101,7 +113,7 @@ log_dirs_3push = [
     './tcub/logs/4-exps_multi_flows/tcub-usevp-simnagle-flows6-seq30-ratio1e-3/train-26000',
     './tcub/logs/4-exps_multi_flows/tcub-usevp-simnagle-flows6-seq30-ratio1e-3/train-54000',
 ]
-save_path_3push = 'vp_training_3push.png'
+save_path_3push = 'vp_training_3push-zh.png'
 plot_vp_training(log_dirs_3push, save_path_3push, 30000, smooth_window=6)
 
 
@@ -144,7 +156,6 @@ def plot_usevp(
     df = df[df['step'] <= trim_step]
     df['value_smooth'] = df.groupby('run')['value'].transform(lambda x: x.rolling(smooth_window, min_periods=1).mean())
 
-    sns.set_theme(style='whitegrid')
     # plt.figure(figsize=(8,6))
     palette = sns.color_palette("viridis", n_colors=df['run'].nunique())
     sns.lineplot(
@@ -171,12 +182,15 @@ def plot_usevp(
     )
 
     # plt.title('Accuracy across multiple runs')
-    plt.xlabel('Step')
-    plt.ylabel('Accuracy')
-    plt.legend(title='Run')
+    # plt.xlabel('Step')
+    # plt.ylabel('Accuracy')
+    # plt.legend(title='Run')
+    plt.xlabel('训练步骤')
+    plt.ylabel('准确率')
+    plt.legend(title='实验')
     plt.tight_layout()
 
-    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.savefig(save_path, dpi=365, bbox_inches="tight")
     plt.show()
 
 
@@ -185,21 +199,21 @@ log_dirs_vp_cic = [
     './cicdarknet/logs/1-exps_other_methods/cicdarknet-baseline-novp-noaug-nomf-seq30-ratio1e-3/train',
     './cicdarknet/logs/3-exps_variable_prototypes/cicdarknet-usevp-noaug-nomf-seq30-ratio1e-3/train-8000',
 ]
-plot_usevp(log_dirs_vp_cic, 'cic-usevp_ratio1e-3.png', 30000, smooth_window=6)
+plot_usevp(log_dirs_vp_cic, 'cic-usevp_ratio1e-3-zh.png', 30000, smooth_window=6)
 
 # %%
 log_dirs_vp_cic = [
     './cicdarknet/logs/1-exps_other_methods/cicdarknet-baseline-novp-noaug-nomf-seq30-ratio1e-5/train',
     './cicdarknet/logs/3-exps_variable_prototypes/cicdarknet-usevp-noaug-nomf-seq30-ratio1e-5/train-32000',
 ]
-plot_usevp(log_dirs_vp_cic, 'cic-usevp_ratio1e-5.png', 40000, smooth_window=6)
+plot_usevp(log_dirs_vp_cic, 'cic-usevp_ratio1e-5-zh.png', 40000, smooth_window=6)
 
 # %%
 log_dirs_vp_tcub = [
     './tcub/logs/1-exps_other_methods/tcub-baseline-novp-noaug-nomf-seq30-ratio1e-3/train',
     './tcub/logs/3-exps_variable_prototypes/tcub-usevp-noaug-nomf-seq30-ratio1e-3/train-55000',
 ]
-plot_usevp(log_dirs_vp_tcub, 'tcub-usevp_ratio1e-3.png', 35000, smooth_window=6)
+plot_usevp(log_dirs_vp_tcub, 'tcub-usevp_ratio1e-3-zh.png', 35000, smooth_window=6)
 
 
 # %%
@@ -207,14 +221,14 @@ log_dirs_vp_tcub = [
     './tcub/logs/1-exps_other_methods/tcub-baseline-novp-noaug-nomf-seq30-ratio1e-5/train',
     './tcub/logs/3-exps_variable_prototypes/tcub-usevp-noaug-nomf-seq30-ratio1e-5/train-35000',
 ]
-plot_usevp(log_dirs_vp_tcub, 'tcub-usevp_ratio1e-5.png', 35000, smooth_window=6)
+plot_usevp(log_dirs_vp_tcub, 'tcub-usevp_ratio1e-5-zh.png', 35000, smooth_window=6)
 
 # %%
 log_dirs_vp_safesurf = [
     './safesurf2025/logs/1-exps_other_methods/safesurf2025-baseline-novp-noaug-nomf-seq30-ratio1e-3/train',
     './safesurf2025/logs/3-exps_variable_prototypes/safesurf2025-usevp-noaug-nomf-seq30-ratio1e-3/train-0',
 ]
-plot_usevp(log_dirs_vp_safesurf, 'safesurf2025-usevp_ratio1e-3.png', 35000, smooth_window=6)
+plot_usevp(log_dirs_vp_safesurf, 'safesurf2025-usevp_ratio1e-3-zh.png', 35000, smooth_window=6)
 
 
 # %%
@@ -222,7 +236,7 @@ log_dirs_vp_safesurf = [
     './safesurf2025/logs/1-exps_other_methods/safesurf2025-baseline-novp-noaug-nomf-seq30-ratio1e-5/train',
     './safesurf2025/logs/3-exps_variable_prototypes/safesurf2025-usevp-noaug-nomf-seq30-ratio1e-5/train-55000',
 ]
-plot_usevp(log_dirs_vp_safesurf, 'safesurf2025-usevp_ratio1e-5.png', 35000, smooth_window=6)
+plot_usevp(log_dirs_vp_safesurf, 'safesurf2025-usevp_ratio1e-5-zh.png', 35000, smooth_window=6)
 
 
 # %%
@@ -230,21 +244,21 @@ log_dirs_vp_safesurf = [
     './safesurf2025/logs/2-exps_tcp_augmentation/safesurf2025-novp-simnagle-nomf-seq30-ratio1e-3/train',
     './safesurf2025/logs/2-exps_tcp_augmentation/safesurf2025-usevp-simnagle-nomf-seq30-ratio1e-3/train-42000',
 ]
-plot_usevp(log_dirs_vp_safesurf, 'safesurf2025-usevp_simnagle_ratio1e-3.png', 27000, smooth_window=6)
+plot_usevp(log_dirs_vp_safesurf, 'safesurf2025-usevp_simnagle_ratio1e-3-zh.png', 27000, smooth_window=6)
 
 # %%
 log_dirs_vp_safesurf = [
     './safesurf2025/logs/3-exps_variable_prototypes/safesurf2025-novp-simnagle-flows3-seq30-ratio1e-3/train',
     './safesurf2025/logs/4-exps_multi_flows/safesurf2025-usevp-simnagle-flows3-seq30-ratio1e-3/train-0',
 ]
-plot_usevp(log_dirs_vp_safesurf, 'safesurf2025-usevp_simnagle_flows3_ratio1e-3.png', 28000, smooth_window=6)
+plot_usevp(log_dirs_vp_safesurf, 'safesurf2025-usevp_simnagle_flows3_ratio1e-3-zh.png', 28000, smooth_window=6)
 
 # %%
 log_dirs_vp_safesurf = [
     './safesurf2025/logs/2-exps_tcp_augmentation/safesurf2025-novp-simnagle-nomf-seq30-ratio1e-5/train',
     './safesurf2025/logs/2-exps_tcp_augmentation/safesurf2025-usevp-simnagle-nomf-seq30-ratio1e-5/train-8000',
 ]
-plot_usevp(log_dirs_vp_safesurf, 'safesurf2025-usevp_simnagle_ratio1e-5.png', 35000, smooth_window=6)
+plot_usevp(log_dirs_vp_safesurf, 'safesurf2025-usevp_simnagle_ratio1e-5-zh.png', 35000, smooth_window=6)
 
 
 # %%
@@ -294,7 +308,6 @@ def plot_usemf(
     df = df[df['step'] <= trim_step]
     df['value_smooth'] = df.groupby('run')['value'].transform(lambda x: x.rolling(smooth_window, min_periods=1).mean())
 
-    sns.set_theme(style='whitegrid')
     # plt.figure(figsize=(8,6))
     # YlOrRd, viridis, magma, YlGnBu, RdBu_r, coolwarm
     palette = sns.color_palette("magma", n_colors=df['run'].nunique())
@@ -322,12 +335,15 @@ def plot_usemf(
     )
 
     # plt.title('Accuracy across multiple runs')
-    plt.xlabel('Step')
-    plt.ylabel('Accuracy')
-    plt.legend(title='Run')
+    # plt.xlabel('Step')
+    # plt.ylabel('Accuracy')
+    # plt.legend(title='Run')
+    plt.xlabel('训练步骤')
+    plt.ylabel('准确率')
+    plt.legend(title='实验')
     plt.tight_layout()
 
-    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.savefig(save_path, dpi=365, bbox_inches="tight")
     plt.show()
 
 # %%
@@ -337,7 +353,7 @@ log_dirs_mf_safesurf = [
     './safesurf2025/logs/4-exps_multi_flows/safesurf2025-usevp-simnagle-flows6-seq30-ratio1e-3/train-22000',
     './safesurf2025/logs/4-exps_multi_flows/safesurf2025-usevp-simnagle-flows9-seq30-ratio1e-3/train-13000',
 ]
-plot_usemf(log_dirs_mf_safesurf, 'safesurf2025-usemf_ratio1e-3.png', 35000, smooth_window=6)
+plot_usemf(log_dirs_mf_safesurf, 'safesurf2025-usemf_ratio1e-3-zh.png', 35000, smooth_window=6)
 
 # %%
 log_dirs_mf_safesurf = [
@@ -346,7 +362,7 @@ log_dirs_mf_safesurf = [
     './safesurf2025/logs/4-exps_multi_flows/safesurf2025-usevp-simnagle-flows6-seq30-ratio1e-5/train-39000',
     './safesurf2025/logs/4-exps_multi_flows/safesurf2025-usevp-simnagle-flows9-seq30-ratio1e-5/train-12000'
 ]
-plot_usemf(log_dirs_mf_safesurf, 'safesurf2025-usemf_ratio1e-5.png', 35000, smooth_window=9)
+plot_usemf(log_dirs_mf_safesurf, 'safesurf2025-usemf_ratio1e-5-zh.png', 35000, smooth_window=9)
 
 
 # %%
@@ -356,7 +372,7 @@ log_dirs_mf_tcub = [
     './tcub/logs/4-exps_multi_flows/tcub-usevp-simnagle-flows6-seq30-ratio1e-3/train-54000',
     './tcub/logs/4-exps_multi_flows/tcub-usevp-simnagle-flows9-seq30-ratio1e-3/train-0',
 ]
-plot_usemf(log_dirs_mf_tcub, 'tcub-usemf_ratio1e-3.png', 30000, smooth_window=6)
+plot_usemf(log_dirs_mf_tcub, 'tcub-usemf_ratio1e-3-zh.png', 30000, smooth_window=6)
 
 # %%
 log_dirs_mf_tcub = [
@@ -365,7 +381,7 @@ log_dirs_mf_tcub = [
     './tcub/logs/4-exps_multi_flows/tcub-usevp-simnagle-flows6-seq30-ratio1e-5/train-17000',
     './tcub/logs/4-exps_multi_flows/tcub-usevp-simnagle-flows9-seq30-ratio1e-5/train-45000'
 ]
-plot_usemf(log_dirs_mf_tcub, 'tcub-usemf_ratio1e-5.png', 30000, smooth_window=6)
+plot_usemf(log_dirs_mf_tcub, 'tcub-usemf_ratio1e-5-zh.png', 30000, smooth_window=6)
 
 
 # %%
@@ -413,7 +429,6 @@ def plot_seqlen(
     df = df[df['step'] <= trim_step]
     df['value_smooth'] = df.groupby('run')['value'].transform(lambda x: x.rolling(smooth_window, min_periods=1).mean())
 
-    sns.set_theme(style='whitegrid')
     # plt.figure(figsize=(8,6))
     # YlOrRd, viridis, magma, YlGnBu, RdBu_r, coolwarm
     palette = sns.color_palette("YlGnBu", n_colors=df['run'].nunique())
@@ -441,12 +456,15 @@ def plot_seqlen(
     )
 
     # plt.title('Accuracy across multiple runs')
-    plt.xlabel('Step')
-    plt.ylabel('Accuracy')
-    plt.legend(title='Run')
+    # plt.xlabel('Step')
+    # plt.ylabel('Accuracy')
+    # plt.legend(title='Run')
+    plt.xlabel('训练步骤')
+    plt.ylabel('准确率')
+    plt.legend(title='实验')
     plt.tight_layout()
 
-    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.savefig(save_path, dpi=365, bbox_inches="tight")
     plt.show()
 
 # %%
@@ -455,7 +473,7 @@ log_dirs_seqlen_safesurf = [
     './safesurf2025/logs/5-exps_seq_len/safesurf2025-usevp-simnagle-nomf-seq60-ratio1e-3/train-28000',
     './safesurf2025/logs/5-exps_seq_len/safesurf2025-usevp-simnagle-nomf-seq90-ratio1e-3/train-0',
 ]
-plot_seqlen(log_dirs_seqlen_safesurf, 'safesurf2025-seqlen_ratio1e-3.png', 30000, smooth_window=9)
+plot_seqlen(log_dirs_seqlen_safesurf, 'safesurf2025-seqlen_ratio1e-3-zh.png', 30000, smooth_window=9)
 
 
 # %%
@@ -507,7 +525,6 @@ def plot_tcpaug(
     df = df[df['step'] <= trim_step]
     df['value_smooth'] = df.groupby('run')['value'].transform(lambda x: x.rolling(smooth_window, min_periods=1).mean())
 
-    sns.set_theme(style='whitegrid')
     # plt.figure(figsize=(8,6))
     # YlOrRd, viridis, magma, YlGnBu, RdBu_r, coolwarm
     palette = sns.color_palette("magma", n_colors=df['run'].nunique())
@@ -535,12 +552,15 @@ def plot_tcpaug(
     )
 
     # plt.title('Accuracy across multiple runs')
-    plt.xlabel('Step')
-    plt.ylabel('Accuracy')
-    plt.legend(title='Run')
+    # plt.xlabel('Step')
+    # plt.ylabel('Accuracy')
+    # plt.legend(title='Run')
+    plt.xlabel('训练步骤')
+    plt.ylabel('准确率')
+    plt.legend(title='实验')
     plt.tight_layout()
 
-    # plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    # plt.savefig(save_path, dpi=365, bbox_inches="tight")
     plt.show()
 
     idx = df.groupby('run')['value_smooth'].idxmax()
@@ -561,7 +581,7 @@ log_dirs_tcpaug_cic = [
     './cicdarknet/logs/2-exps_tcp_augmentation/cicdarknet-usevp-simnagle-nomf-seq30-ratio1e-3/train-35000',
     './cicdarknet/logs/2-exps_tcp_augmentation/cicdarknet-usevp-simshift-nomf-seq30-ratio1e-3/train-46000',
 ]
-df_runs_max, df_runs_mean = plot_tcpaug(log_dirs_tcpaug_cic, 'cicdarknet-tcpaug_ratio1e-3.png', 100000, smooth_window=3)
+df_runs_max, df_runs_mean = plot_tcpaug(log_dirs_tcpaug_cic, 'cicdarknet-tcpaug_ratio1e-3-zh.png', 100000, smooth_window=3)
 print(df_runs_max)
 """cicdarknet-tcpaug_ratio1e-3
         run  value_smooth
@@ -581,7 +601,7 @@ log_dirs_tcpaug_cic = [
     './cicdarknet/logs/2-exps_tcp_augmentation/cicdarknet-usevp-simnagle-nomf-seq30-ratio1e-5/train-10000',
     './cicdarknet/logs/2-exps_tcp_augmentation/cicdarknet-usevp-simshift-nomf-seq30-ratio1e-5/train-55000',
 ]
-df_runs_max, df_runs_mean = plot_tcpaug(log_dirs_tcpaug_cic, 'cicdarknet-tcpaug_ratio1e-5.png', 100000, smooth_window=5)
+df_runs_max, df_runs_mean = plot_tcpaug(log_dirs_tcpaug_cic, 'cicdarknet-tcpaug_ratio1e-5-zh.png', 100000, smooth_window=5)
 print(df_runs_max)
 """cicdarknet-tcpaug_ratio1e-5
         run  value_smooth
@@ -602,7 +622,7 @@ log_dirs_tcpaug_tcub = [
     './tcub/logs/2-exps_tcp_augmentation/tcub-usevp-simnagle-nomf-seq30-ratio1e-3/train-55000',
     './tcub/logs/2-exps_tcp_augmentation/tcub-usevp-simshift-nomf-seq30-ratio1e-3/train-25000',
 ]
-df_runs_max, df_runs_mean = plot_tcpaug(log_dirs_tcpaug_tcub, 'tcub-tcpaug_ratio1e-3.png', 100000, smooth_window=5)
+df_runs_max, df_runs_mean = plot_tcpaug(log_dirs_tcpaug_tcub, 'tcub-tcpaug_ratio1e-3-zh.png', 100000, smooth_window=5)
 print(df_runs_max)
 """tcub-tcpaug_ratio1e-3
         run  value_smooth
@@ -622,7 +642,7 @@ log_dirs_tcpaug_tcub = [
     './tcub/logs/2-exps_tcp_augmentation/tcub-usevp-simnagle-nomf-seq30-ratio1e-5/train-53000',
     './tcub/logs/2-exps_tcp_augmentation/tcub-usevp-simshift-nomf-seq30-ratio1e-5/train-0',
 ]
-df_runs_max, df_runs_mean = plot_tcpaug(log_dirs_tcpaug_tcub, 'tcub-tcpaug_ratio1e-5.png', 100000, smooth_window=5)
+df_runs_max, df_runs_mean = plot_tcpaug(log_dirs_tcpaug_tcub, 'tcub-tcpaug_ratio1e-5-zh.png', 100000, smooth_window=5)
 print(df_runs_max)
 """tcub-tcpaug_ratio1e-5
         run  value_smooth
@@ -643,7 +663,7 @@ log_dirs_tcpaug_safesurf = [
     './safesurf2025/logs/2-exps_tcp_augmentation/safesurf2025-usevp-simnagle-nomf-seq30-ratio1e-3/train-42000',
     './safesurf2025/logs/2-exps_tcp_augmentation/safesurf2025-usevp-simshift-nomf-seq30-ratio1e-3/train-54000',
 ]
-df_runs_max, df_runs_mean = plot_tcpaug(log_dirs_tcpaug_safesurf, 'safesurf2025-tcpaug_ratio1e-3.png', 100000, smooth_window=5)
+df_runs_max, df_runs_mean = plot_tcpaug(log_dirs_tcpaug_safesurf, 'safesurf2025-tcpaug_ratio1e-3-zh.png', 100000, smooth_window=5)
 print(df_runs_max)
 """safesurf2025-tcpaug_ratio1e-3
         run  value_smooth
@@ -663,7 +683,7 @@ log_dirs_tcpaug_safesurf = [
     './safesurf2025/logs/2-exps_tcp_augmentation/safesurf2025-usevp-simnagle-nomf-seq30-ratio1e-5/train-8000',
     './safesurf2025/logs/2-exps_tcp_augmentation/safesurf2025-usevp-simshift-nomf-seq30-ratio1e-5/train-57000',
 ]
-df_runs_max, df_runs_mean = plot_tcpaug(log_dirs_tcpaug_safesurf, 'safesurf2025-tcpaug_ratio1e-5.png', 100000, smooth_window=500)
+df_runs_max, df_runs_mean = plot_tcpaug(log_dirs_tcpaug_safesurf, 'safesurf2025-tcpaug_ratio1e-5-zh.png', 100000, smooth_window=500)
 print(df_runs_max)
 """safesurf2025-tcpaug_ratio1e-5
         run  value_smooth
