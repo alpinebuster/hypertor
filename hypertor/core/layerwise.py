@@ -1517,21 +1517,7 @@ class LayerwiseModel(nn.Module):
             dataset.real_class_min is not None and
             dataset.real_class_max is not None
         ):
-            if model_config.shared_feature_extractor is not None:
-                match = re.match(r'(\d+)', model_config.shared_feature_extractor)
-                if match:
-                    num_feature_layers = int(match.group(1))
-                else:
-                    raise ValueError(
-                        f"No leading number found in shared_feature_extractor: "
-                        f"'{model_config.shared_feature_extractor}'"
-                    )
-            else:
-                num_feature_layers = 0
-
             self.shared_head = feature_extractors.SharedHead(
-                # shared_features_dim=model_config.shared_features_dim*num_feature_layers
-                #     if model_config.use_darkflow else model_config.shared_features_dim,
                 shared_features_dim=model_config.shared_features_dim,
                 real_class_min=dataset.real_class_min,
                 real_class_max=dataset.real_class_max,
