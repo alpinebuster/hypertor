@@ -81,7 +81,6 @@ gpu = [
     "tensorrt",
     "onnx",
     "onnx-graphsurgeon",
-    "onnxconverter-common",
     "onnxruntime-tools",
     "onnxruntime",
 ]
