@@ -10,15 +10,17 @@ To alleviate the limitations imposed by scarce training data, we introduce a TCP
 
 **3. Variable-Prototype Learning for Class Imbalance**
 To handle class imbalance, we propose a variable-prototype learning paradigm that:
-- Adaptively determines the number of prototypes for each class  
-- Simultaneously learns data-driven class centers  
+
+- Adaptively determines the number of prototypes for each class
+- Simultaneously learns data-driven class centers
 
 This design produces more discriminative decision boundaries and improves classification robustness, particularly for minority classes.
 
 **4. Transformer-Based Layerwise Hypernetwork**
 We employ a Transformer-based layerwise hypernetwork, in which:
+
 - A Transformer architecture generates the parameters of Convolutional Neural Networks (CNNs) & Variable Prototypes
-- Only hypernetwork weights are shared across participants  
+- Only hypernetwork weights are shared across participants
 
 This strategy enhances model flexibility while preserving data privacy.
 
@@ -26,10 +28,10 @@ This strategy enhances model flexibility while preserving data privacy.
   <img src="./img-imbalanced_tc.png" alt="Main Diagram" width="100%">
 </p>
 
-
-## Getting started
+## Getting Started
 
 ### Python Poetry
+
 ```sh
 poetry install
 
@@ -43,6 +45,7 @@ poetry env remove --all
 ```
 
 ### Tor
+
 ```sh
 sudo apt install tor obfs4proxy
 
@@ -135,7 +138,7 @@ nohup torchrun --nproc_per_node=2 ./hypertor/train.py -- \
 echo $?
 ```
 
-### HyperTor
+### Code Structure
 
 The code consists of several parts:
 
