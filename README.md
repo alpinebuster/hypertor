@@ -1,9 +1,9 @@
-# Imbalanced Darknet Traffic Classification
+# HyperTor
 
-In this study, we propose a comprehensive framework that integrates multiple components for traffic classification.
+In this project, we propose a comprehensive framework that integrates multiple components for few-shot darknet (Tor) traffic classification.
 
-**1. Multi-Flow Fingerprinting Mechanism**
-To enhance feature representation and effectively distinguish between traffic classes, we propose a bespoke fingerprinting mechanism. This method aggregates multi flows originating from a single access event, enabling richer and more discriminative traffic representations.
+**1. Handshake-fingerprint-based multi-flow grouping**
+We develop a lightweight method to group potentially related flows using observable handshake characteristics. Rather than requiring precise access-session reconstruction, the method provides auxiliary unlabeled traffic for semi-supervised learning without training additional flow association models.
 
 **2. TCP-Sequence-Driven Data Augmentation**
 To alleviate the limitations imposed by scarce training data, we introduce a TCP-sequence-driven data augmentation strategy. This approach leverages intrinsic TCP sequence characteristics to generate meaningful augmented samples while preserving semantic consistency.
@@ -21,8 +21,6 @@ We employ a Transformer-based layerwise hypernetwork, in which:
 
 - A Transformer architecture generates the parameters of Convolutional Neural Networks (CNNs) & Variable Prototypes
 - Only hypernetwork weights are shared across participants
-
-This strategy enhances model flexibility while preserving data privacy.
 
 <p align="center" style="background-color:white;">
   <img src="./img-imbalanced_tc.png" alt="Main Diagram" width="100%">
