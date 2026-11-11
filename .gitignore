@@ -2,7 +2,8 @@
 id_rsa
 data/net_mamba
 data/pcap
-*.pcap*
+*.pcap
+*.pcapng
 *.pkl
 **/*/.cache
 *.log

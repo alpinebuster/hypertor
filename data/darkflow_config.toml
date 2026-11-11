@@ -1,4 +1,3 @@
-
 [config]
 features = "Darkflow"    # FlowType can be one of: Basic, CIC, CIDDS, Nfstream, RustiFlow, DarkFlow, Custom
 active_timeout = 3600    # Maximum time a flow is allowed to last in seconds
