@@ -5,6 +5,9 @@
 At project's root dir:
 
 ```sh
+sudo apt update
+sudo apt install -y rsync
+
 rsync -avzP ./data/ username@server_ip:/imbalanced_traffic_classification/hypertor/data/
 tar -cvf ./tcub_data_cache.tar ./data/tcub/cache/
 tar -xvf ./tcub_data_cache.tar -C ./tcub

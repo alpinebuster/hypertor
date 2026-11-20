@@ -1,0 +1,7 @@
+*.tar
+*.zip
+ss/**/*
+vless/**/*
+vmess/**/*
+trojan/**/*
+ewtd.csv

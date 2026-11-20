@@ -1,0 +1,6 @@
+*.pkl
+*.ipynb
+test*.py
+*.zip
+*.tar.gz
+*.tar

@@ -1,0 +1,11 @@
+logs
+*.pt
+*.tar
+*-stage*.csv
+*-merged.csv
+cic-all.csv
+cic-Tor*.csv
+cidds-all.csv
+cidds-Tor*.csv
+rustiflow-all.csv
+rustiflow-Tor*.csv

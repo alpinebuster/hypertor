@@ -23,7 +23,7 @@ We employ a Transformer-based layerwise hypernetwork, in which:
 - Only hypernetwork weights are shared across participants
 
 <p align="center" style="background-color:white;">
-  <img src="./img-imbalanced_tc.png" alt="Main Diagram" width="100%">
+  <img src="./img-hypertor.png" alt="Main Diagram" width="100%">
 </p>
 
 ## Getting Started
