@@ -32,14 +32,11 @@ We employ a Transformer-based layerwise hypernetwork, in which:
 
 ```sh
 poetry install
-
 poetry env activate
 # or
 source $(poetry env info -p)/bin/activate
 # or
 . $(poetry env info -p)/bin/activate
-
-poetry env remove --all
 ```
 
 ### Tor
@@ -60,12 +57,10 @@ sudo journalctl -e -f -u tor@default
 
 ### Running Examples
 
-Folder `scripts` contains several training scripts for `darknet-dataset-2020` and `ISCX-Tor-NonTor-2017` datasets.
-
-They can be executed as follows:
+Folder `scripts-dev` contains several training scripts for chosen datasets. They can be executed as follows:
 
 ```shell
-./scripts/darkflow_1shot.sh --data_numpy_dir=./data/darkflow/cache --train_log_dir=./data/darkflow/logs/torch
+./scripts-dev/darkflow_1shot.sh --data_numpy_dir=./data/to/cache --train_log_dir=./data/to/logs/torch
 ```
 
 NOTE: The **evaluation** script `evaluate.py` can be executed **in parallel** to
@@ -75,40 +70,6 @@ The evaluation script accepts the same parameters as the training script.
 > DDP (DistributedDataParallel) Supports
 
 ```sh
-# (Optional)
-sudo sysctl -w vm.max_map_count=262144
->>> vm.max_map_count = 262144
-cat /proc/sys/vm/max_map_count
->>> 262144
-
-sudo sysctl -w vm.overcommit_memory=1
->>> vm.overcommit_memory = 1
-sudo sysctl -w vm.overcommit_ratio=100
->>> vm.overcommit_ratio = 100
-
-cat /proc/sys/vm/overcommit_memory
->>> 1
-cat /proc/sys/vm/overcommit_ratio
->>> 100
-
-swapon --show
->>> NAME      TYPE SIZE USED PRIO
->>> /swapfile file   2G   0B   -2
-sudo fallocate -l 32G /swapfile32
-sudo chmod 600 /swapfile32
-sudo mkswap /swapfile32
->>> Setting up swapspace version 1, size = 32 GiB (34359734272 bytes)
->>> no label, UUID=42979462-b31e-4ef1-8d2f-b0772f9e95ad
-sudo swapon /swapfile32
-swapon --show
-free -h
-sudo nano /etc/fstab # Add "/swapfile32 none swap sw 0 0" to it
-cat /proc/sys/vm/swappiness
-sudo sysctl -w vm.swappiness=10
-sudo nano /etc/sysctl.conf # Add "vm.swappiness=10" to it
-
-sudo slabtop
-
 # `nproc_per_node` -> Number of GPUs
 # `--` -> All the parameters that follow are not `torchrun` but passed to the python
 nohup torchrun --nproc_per_node=2 ./hypertor/train.py -- \
