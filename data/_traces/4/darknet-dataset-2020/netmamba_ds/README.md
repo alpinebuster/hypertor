@@ -1,8 +1,1 @@
-# NETMAMBA RESULTS
-
-```csv
-Dataset,Architecture,Accuracy
-tcub_sampled_ratio1.0, net_mamba_classifier, 0.9906
-tcub_sampled_ratio0.001, net_mamba_classifier, 0.8925
-tcub_sampled_ratio1e-05, net_mamba_classifier, 0.8125
-```
+# NETMAMBA
