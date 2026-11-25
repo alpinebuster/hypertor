@@ -1,4 +1,4 @@
-# DARKFLOW DATASETS
+# DATA
 
 ## Getting Started
 
@@ -8,7 +8,7 @@ At project's root dir:
 sudo apt update
 sudo apt install -y rsync
 
-rsync -avzP ./data/ username@server_ip:/imbalanced_traffic_classification/hypertor/data/
+rsync -avzuP ./data/ username@server_ip:/hypertor/data/
 tar -cvf ./tcub_data_cache.tar ./data/tcub/cache/
 tar -xvf ./tcub_data_cache.tar -C ./tcub
 
