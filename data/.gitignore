@@ -3,5 +3,13 @@ logs
 *.csv
 *.npy
 *.tar
+*.png
+*.pdf
 *.tar.gz
 *.zip
+exp-plot_runs*.py
+
+./cicdarknet
+./safesurf2025
+./sc
+./tcub
