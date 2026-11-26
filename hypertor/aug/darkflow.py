@@ -1,5 +1,5 @@
 # DARK FLOW
-# 
+#
 # The upstream and downstream behavior feature group,
 # packet length distribution feature group,
 # and extensible general traffic feature group (IAT, IPD, etc.).
@@ -64,7 +64,7 @@ def df_to_normalized_numpy(
     drop_len: int = 3,
 ) -> tuple[np.ndarray, list[str]]:
     # NOT perform norm on 'pkt_usec_seq' & 'pkt_len_seq' for data augmentation
-    cols_small = ['pkt_dir_seq', 'pkt_len_seq', 'pkt_usec_seq', 
+    cols_small = ['pkt_dir_seq', 'pkt_len_seq', 'pkt_usec_seq',
                   'fin_seq','syn_seq','rst_seq','psh_seq','ack_seq',
                   'urg_seq','cwr_seq','ece_seq','ip_df_seq','ip_mf_seq']
     cols_numeric = ['tcp_window_seq']
@@ -148,7 +148,7 @@ def main(argv):
        }
         |
         | TCP Augmentation
-        ↓ 
+        ↓
        2) npy [] -> {
            "SIGN": replenish_list(sign),
            "SIGN_PKT_LEN": replenish_list(sign_pkt_len),
@@ -162,7 +162,7 @@ def main(argv):
        }
         |
         | Normalize
-        ↓ 
+        ↓
        3) Convert to a 5D tensor [all_classes, all_samples, F, C, T]
     """
     # The command-line parameters have been parsed by absl.
@@ -181,7 +181,6 @@ def main(argv):
 
     config = tcp_aug.make_tcp_augmentation_config()
 
-    # TODO
     labels = np.zeros(df.shape[0])
     simulator = tcp_aug.TCPSequenceSimulator(config, df, labels)
     # df=simulator.data -> [num_samples, num_features, seq_len] or [all_classes, all_samples, F, C, T]
