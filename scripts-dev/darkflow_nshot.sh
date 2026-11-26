@@ -1,11 +1,10 @@
 # Call from the project root directory:
 #
-#    `./scripts/darkflow_nshot.sh` with flags
-#    "--data_numpy_dir=<darkflow_cache> --train_log_dir=<output_path>"
-# 
+#    `./scripts/darkflow_nshot.sh --data_numpy_dir=<darkflow_cache> --train_log_dir=<output_path>`
+#
 # e.g.
 #    `nohup ./scripts/darkflow_nshot.sh --data_numpy_dir=./data/cicdarknet/cache --train_log_dir=./data/cicdarknet/logs/torch_nshot > darkflow_cicdarknet_nshot.log 2>&1 &`
-# 
+#
 ./scripts/darkflow_1shot.sh --samples_transformer=35 --samples_cnn=70 \
   --train_dataset='cicdarknet:0-6' \
   --test_dataset='cicdarknet:0-6' --eval_datasets='cicdarknet' \

@@ -168,7 +168,7 @@ def visualize(directory: str):
 
 if __name__ == "__main__":
     """
-    e.g. `python visualize_vp_results.py /home/datum/workspaces/workspace/doctoral/anonymity/_code/imbalanced_traffic_classification/hypertor/data/cicdarknet/logs/2-exps_tcp_augmentation/cicdarknet-usevp-simloss-nomf-seq30-ratio1e-5/prototypes/step-74000/`
+    e.g. `python visualize_vp_results.py ./data/cicdarknet/logs/2-exps_tcp_augmentation/cicdarknet-usevp-simloss-nomf-seq30/prototypes/step-74000/`
     """
 
     if len(sys.argv) != 2:

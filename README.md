@@ -31,12 +31,10 @@ We employ a Transformer-based layerwise hypernetwork, in which:
 ### Python Poetry
 
 ```sh
-poetry install
+poetry install --extras gpu
 poetry env activate
 # or
 source $(poetry env info -p)/bin/activate
-# or
-. $(poetry env info -p)/bin/activate
 ```
 
 ### Tor

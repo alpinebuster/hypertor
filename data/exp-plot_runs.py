@@ -6,11 +6,17 @@ import matplotlib.pyplot as plt
 from tensorboard.backend.event_processing import event_accumulator
 import matplotlib.font_manager as fm
 
+# `fc-list :lang=zh`
+for f in fm.fontManager.ttflist:
+    print(f.name)
+
 sns.set_theme(style='whitegrid')
+plt.rcParams['font.family'] = ['TeX Gyre Termes', 'AR PL UMing CN']
+plt.rcParams['axes.unicode_minus'] = False
 
 
 # %%
-def plot_vp_training(log_dirs: list[str], save_name: str, trim_step=50000, smooth_window=12):
+def plot_vp_training(log_dirs: list[str], save_name: str, trim_step = 50000, smooth_window = 12, zh: bool = False):
     tag_to_plot = 'accuracy/accuracy'
 
     all_data = []
@@ -68,30 +74,39 @@ def plot_vp_training(log_dirs: list[str], save_name: str, trim_step=50000, smoot
         linewidth=2,
     )
 
-    # plt.title('Accuracy across multiple runs')
-    plt.xlabel('Step')
-    plt.ylabel('Accuracy')
-    plt.legend(title='Run')
+    if zh:
+        plt.xlabel('训练步骤')
+        plt.ylabel('准确率')
+        plt.legend(title='实验')
+    else:
+        # plt.title('Accuracy across multiple runs')
+        plt.xlabel('Step')
+        plt.ylabel('Accuracy')
+        plt.legend(title='Run')
     plt.tight_layout()
 
-    plt.savefig(save_name+".png", dpi=400, bbox_inches="tight")
-    plt.savefig(save_name+".pdf", format="pdf", dpi=400, bbox_inches="tight")
+    if zh:
+        plt.savefig(save_name+"-zh.png", dpi=400, bbox_inches="tight")
+        plt.savefig(save_name+"-zh.pdf", format="pdf", dpi=400, bbox_inches="tight")
+    else:
+        plt.savefig(save_name+".png", dpi=400, bbox_inches="tight")
+        plt.savefig(save_name+".pdf", format="pdf", dpi=400, bbox_inches="tight")
     plt.show()
 
 log_dirs_1push = [
     './cicdarknet/logs/2-exps_tcp_augmentation/cicdarknet-usevp-simnagle-nomf-seq30/train-0',
     './cicdarknet/logs/2-exps_tcp_augmentation/cicdarknet-usevp-simnagle-nomf-seq30/train-10000',
 ]
-save_path_1push = 'vp_training_1push'
-plot_vp_training(log_dirs_1push, save_path_1push, smooth_window=6)
+plot_vp_training(log_dirs_1push, 'vp_training_1push', smooth_window=6, zh=False)
+plot_vp_training(log_dirs_1push, 'vp_training_1push', smooth_window=6, zh=True)
 
 log_dirs_2push = [
     './cicdarknet/logs/3-exps_variable_prototypes/cicdarknet-usevp-noaug-nomf-seq30/train-0',
     './cicdarknet/logs/3-exps_variable_prototypes/cicdarknet-usevp-noaug-nomf-seq30/train-43000',
     './cicdarknet/logs/3-exps_variable_prototypes/cicdarknet-usevp-noaug-nomf-seq30/train-54000',
 ]
-save_path_2push = 'vp_training_2push'
-plot_vp_training(log_dirs_2push, save_path_2push, 30000, smooth_window=6)
+plot_vp_training(log_dirs_2push, 'vp_training_2push', 30000, smooth_window=6, zh=False)
+plot_vp_training(log_dirs_2push, 'vp_training_2push', 30000, smooth_window=6, zh=True)
 
 log_dirs_3push = [
     './tcub/logs/4-exps_multi_flows/tcub-usevp-simnagle-flows6-seq30/train-0',
@@ -99,16 +114,17 @@ log_dirs_3push = [
     './tcub/logs/4-exps_multi_flows/tcub-usevp-simnagle-flows6-seq30/train-26000',
     './tcub/logs/4-exps_multi_flows/tcub-usevp-simnagle-flows6-seq30/train-54000',
 ]
-save_path_3push = 'vp_training_3push'
-plot_vp_training(log_dirs_3push, save_path_3push, 30000, smooth_window=6)
+plot_vp_training(log_dirs_3push, 'vp_training_3push', 30000, smooth_window=6, zh=False)
+plot_vp_training(log_dirs_3push, 'vp_training_3push', 30000, smooth_window=6, zh=True)
 
 
 # %%
 def plot_usevp(
     log_dirs: list[str],
     save_name: str,
-    trim_step=50000,
-    smooth_window=12,
+    trim_step = 50000,
+    smooth_window = 12,
+    zh: bool = False,
 ):
     tag_to_plot = 'accuracy/accuracy'
 
@@ -167,14 +183,23 @@ def plot_usevp(
         linewidth=2,
     )
 
-    # plt.title('Accuracy across multiple runs')
-    plt.xlabel('Step')
-    plt.ylabel('Accuracy')
-    plt.legend(title='Run')
+    if zh:
+        plt.xlabel('训练步骤')
+        plt.ylabel('准确率')
+        plt.legend(title='实验')
+    else:
+        # plt.title('Accuracy across multiple runs')
+        plt.xlabel('Step')
+        plt.ylabel('Accuracy')
+        plt.legend(title='Run')
     plt.tight_layout()
 
-    plt.savefig(save_name+".png", dpi=400, bbox_inches="tight")
-    plt.savefig(save_name+".pdf", format="pdf", dpi=400, bbox_inches="tight")
+    if zh:
+        plt.savefig(save_name+"-zh.png", dpi=400, bbox_inches="tight")
+        plt.savefig(save_name+"-zh.pdf", format="pdf", dpi=400, bbox_inches="tight")
+    else:
+        plt.savefig(save_name+".png", dpi=400, bbox_inches="tight")
+        plt.savefig(save_name+".pdf", format="pdf", dpi=400, bbox_inches="tight")
     plt.show()
 
 # %%
@@ -182,46 +207,53 @@ log_dirs_vp_cic = [
     './cicdarknet/logs/1-exps_other_methods/cicdarknet-baseline-novp-noaug-nomf-seq30/train',
     './cicdarknet/logs/3-exps_variable_prototypes/cicdarknet-usevp-noaug-nomf-seq30/train-8000',
 ]
-plot_usevp(log_dirs_vp_cic, 'exp-usevp-cic', 30000, smooth_window=6)
+plot_usevp(log_dirs_vp_cic, 'exp-usevp-cic', 30000, smooth_window=6, zh=False)
+plot_usevp(log_dirs_vp_cic, 'exp-usevp-cic', 30000, smooth_window=6, zh=True)
 
 log_dirs_vp_tcub = [
     './tcub/logs/1-exps_other_methods/tcub-baseline-novp-noaug-nomf-seq30/train',
     './tcub/logs/3-exps_variable_prototypes/tcub-usevp-noaug-nomf-seq30/train-55000',
 ]
-plot_usevp(log_dirs_vp_tcub, 'exp-usevp-tcub', 35000, smooth_window=6)
+plot_usevp(log_dirs_vp_tcub, 'exp-usevp-tcub', 35000, smooth_window=6, zh=False)
+plot_usevp(log_dirs_vp_tcub, 'exp-usevp-tcub', 35000, smooth_window=6, zh=True)
 
 log_dirs_vp_safesurf = [
     './safesurf2025/logs/1-exps_other_methods/safesurf2025-baseline-novp-noaug-nomf-seq303/train',
     './safesurf2025/logs/3-exps_variable_prototypes/safesurf2025-usevp-noaug-nomf-seq30/train-0',
 ]
-plot_usevp(log_dirs_vp_safesurf, 'exp-usevp-safesurf2025', 35000, smooth_window=6)
+plot_usevp(log_dirs_vp_safesurf, 'exp-usevp-safesurf2025', 35000, smooth_window=6, zh=False)
+plot_usevp(log_dirs_vp_safesurf, 'exp-usevp-safesurf2025', 35000, smooth_window=6, zh=True)
 
 # %%
 log_dirs_vp_sc = [
     './sc/logs/1-exps_other_methods/ss-baseline-novp-noaug-nomf-seq30/train',
     './sc/logs/3-exps_variable_prototypes/sc-usevp-noaug-nomf-seq30/train-0',
 ]
-plot_usevp(log_dirs_vp_sc, 'exp-usevp-sc', 35000, smooth_window=6)
+plot_usevp(log_dirs_vp_sc, 'exp-usevp-sc', 35000, smooth_window=6, zh=False)
+plot_usevp(log_dirs_vp_sc, 'exp-usevp-sc', 35000, smooth_window=6, zh=True)
 
 log_dirs_vp_sc = [
     './sc/logs/1-exps_other_methods/ss-baseline-novp-noaug-nomf-seq30/train',
     './sc/logs/3-exps_variable_prototypes/sc-usevp-noaug-nomf-seq30/train-0',
 ]
-plot_usevp(log_dirs_vp_sc, 'exp-usevp_simnagle-sc', 35000, smooth_window=6)
+plot_usevp(log_dirs_vp_sc, 'exp-usevp_simnagle-sc', 35000, smooth_window=6, zh=False)
+plot_usevp(log_dirs_vp_sc, 'exp-usevp_simnagle-sc', 35000, smooth_window=6, zh=True)
 
 log_dirs_vp_sc = [
     './sc/logs/1-exps_other_methods/ss-baseline-novp-noaug-nomf-seq30/train',
     './sc/logs/3-exps_variable_prototypes/sc-usevp-noaug-nomf-seq30/train-0',
 ]
-plot_usevp(log_dirs_vp_sc, 'exp-usevp_simnagle_flows3-sc', 35000, smooth_window=6)
+plot_usevp(log_dirs_vp_sc, 'exp-usevp_simnagle_flows3-sc', 35000, smooth_window=6, zh=False)
+plot_usevp(log_dirs_vp_sc, 'exp-usevp_simnagle_flows3-sc', 35000, smooth_window=6, zh=True)
 
 
 # %%
 def plot_usemf(
     log_dirs: list[str],
     save_name: str,
-    trim_step=50000,
-    smooth_window=12,
+    trim_step = 50000,
+    smooth_window = 12,
+    zh: bool = False,
 ):
     tag_to_plot = 'accuracy/accuracy'
 
@@ -289,14 +321,23 @@ def plot_usemf(
         linewidth=2,
     )
 
-    # plt.title('Accuracy across multiple runs')
-    plt.xlabel('Step')
-    plt.ylabel('Accuracy')
-    plt.legend(title='Run')
+    if zh:
+        plt.xlabel('训练步骤')
+        plt.ylabel('准确率')
+        plt.legend(title='实验')
+    else:
+        # plt.title('Accuracy across multiple runs')
+        plt.xlabel('Step')
+        plt.ylabel('Accuracy')
+        plt.legend(title='Run')
     plt.tight_layout()
 
-    plt.savefig(save_name+".png", dpi=400, bbox_inches="tight")
-    plt.savefig(save_name+".pdf", format="pdf", dpi=400, bbox_inches="tight")
+    if zh:
+        plt.savefig(save_name+"-zh.png", dpi=400, bbox_inches="tight")
+        plt.savefig(save_name+"-zh.pdf", format="pdf", dpi=400, bbox_inches="tight")
+    else:
+        plt.savefig(save_name+".png", dpi=400, bbox_inches="tight")
+        plt.savefig(save_name+".pdf", format="pdf", dpi=400, bbox_inches="tight")
     plt.show()
 
 # %%
@@ -306,15 +347,17 @@ log_dirs_mf_sc = [
     './sc/logs/4-exps_multi_flows/sc-usevp-simnagle-flows6-seq30/train-22000',
     './sc/logs/4-exps_multi_flows/sc-usevp-simnagle-flows9-seq30/train-13000',
 ]
-plot_usemf(log_dirs_mf_sc, 'exp-usemf-sc', 35000, smooth_window=6)
+plot_usemf(log_dirs_mf_sc, 'exp-usemf-sc', 35000, smooth_window=6, zh=False)
+plot_usemf(log_dirs_mf_sc, 'exp-usemf-sc', 35000, smooth_window=6, zh=True)
 
 
 # %%
 def plot_seqlen(
     log_dirs: list[str],
     save_name: str,
-    trim_step=50000,
-    smooth_window=12,
+    trim_step = 50000,
+    smooth_window = 12,
+    zh: bool = False,
 ):
     tag_to_plot = 'accuracy/accuracy'
 
@@ -380,14 +423,23 @@ def plot_seqlen(
         linewidth=2,
     )
 
-    # plt.title('Accuracy across multiple runs')
-    plt.xlabel('Step')
-    plt.ylabel('Accuracy')
-    plt.legend(title='Run')
+    if zh:
+        plt.xlabel('训练步骤')
+        plt.ylabel('准确率')
+        plt.legend(title='实验')
+    else:
+        # plt.title('Accuracy across multiple runs')
+        plt.xlabel('Step')
+        plt.ylabel('Accuracy')
+        plt.legend(title='Run')
     plt.tight_layout()
 
-    plt.savefig(save_name+".png", dpi=400, bbox_inches="tight")
-    plt.savefig(save_name+".pdf", format="pdf", dpi=400, bbox_inches="tight")
+    if zh:
+        plt.savefig(save_name+"-zh.png", dpi=400, bbox_inches="tight")
+        plt.savefig(save_name+"-zh.pdf", format="pdf", dpi=400, bbox_inches="tight")
+    else:
+        plt.savefig(save_name+".png", dpi=400, bbox_inches="tight")
+        plt.savefig(save_name+".pdf", format="pdf", dpi=400, bbox_inches="tight")
     plt.show()
 
 # %%
@@ -396,15 +448,17 @@ log_dirs_seqlen_safesurf = [
     './safesurf2025/logs/5-exps_seq_len/safesurf2025-usevp-simnagle-nomf-seq60/train-28000',
     './safesurf2025/logs/5-exps_seq_len/safesurf2025-usevp-simnagle-nomf-seq90/train-0',
 ]
-plot_seqlen(log_dirs_seqlen_safesurf, 'safesurf2025-seqlen', 30000, smooth_window=9)
+plot_seqlen(log_dirs_seqlen_safesurf, 'safesurf2025-seqlen', 30000, smooth_window=9, zh=False)
+plot_seqlen(log_dirs_seqlen_safesurf, 'safesurf2025-seqlen', 30000, smooth_window=9, zh=True)
 
 
 # %%
 def plot_tcpaug(
     log_dirs: list[str],
     save_name: str,
-    trim_step=50000,
-    smooth_window=12,
+    trim_step = 50000,
+    smooth_window = 12,
+    zh: bool =  False,
 ):
     tag_to_plot = 'accuracy/accuracy'
 
@@ -474,14 +528,23 @@ def plot_tcpaug(
         linewidth=2,
     )
 
-    # plt.title('Accuracy across multiple runs')
-    plt.xlabel('Step')
-    plt.ylabel('Accuracy')
-    plt.legend(title='Run')
+    if zh:
+        plt.xlabel('训练步骤')
+        plt.ylabel('准确率')
+        plt.legend(title='实验')
+    else:
+        # plt.title('Accuracy across multiple runs')
+        plt.xlabel('Step')
+        plt.ylabel('Accuracy')
+        plt.legend(title='Run')
     plt.tight_layout()
 
-    # plt.savefig(save_name+".png", dpi=400, bbox_inches="tight")
-    # plt.savefig(save_name+".pdf", format="pdf", dpi=400, bbox_inches="tight")
+    if zh:
+        plt.savefig(save_name+"-zh.png", dpi=400, bbox_inches="tight")
+        plt.savefig(save_name+"-zh.pdf", format="pdf", dpi=400, bbox_inches="tight")
+    else:
+        plt.savefig(save_name+".png", dpi=400, bbox_inches="tight")
+        plt.savefig(save_name+".pdf", format="pdf", dpi=400, bbox_inches="tight")
     plt.show()
 
     idx = df.groupby('run')['value_smooth'].idxmax()
@@ -502,7 +565,8 @@ log_dirs_tcpaug_cic = [
     './cicdarknet/logs/2-exps_tcp_augmentation/cicdarknet-usevp-simnagle-nomf-seq30/train-10000',
     './cicdarknet/logs/2-exps_tcp_augmentation/cicdarknet-usevp-simshift-nomf-seq30/train-55000',
 ]
-df_runs_max, df_runs_mean = plot_tcpaug(log_dirs_tcpaug_cic, 'exp-tcpaug-cicdarknet', 100000, smooth_window=5)
+df_runs_max, df_runs_mean = plot_tcpaug(log_dirs_tcpaug_cic, 'exp-tcpaug-cicdarknet', 100000, smooth_window=5, zh=False)
+plot_tcpaug(log_dirs_tcpaug_cic, 'exp-tcpaug-cicdarknet', 100000, smooth_window=5, zh=True)
 print(df_runs_max)
 print(df_runs_mean)
 
@@ -514,7 +578,8 @@ log_dirs_tcpaug_tcub = [
     './tcub/logs/2-exps_tcp_augmentation/tcub-usevp-simnagle-nomf-seq30/train-55000',
     './tcub/logs/2-exps_tcp_augmentation/tcub-usevp-simshift-nomf-seq30/train-25000',
 ]
-df_runs_max, df_runs_mean = plot_tcpaug(log_dirs_tcpaug_tcub, 'exp-tcpaug-tcub', 100000, smooth_window=5)
+df_runs_max, df_runs_mean = plot_tcpaug(log_dirs_tcpaug_tcub, 'exp-tcpaug-tcub', 100000, smooth_window=5, zh=False)
+plot_tcpaug(log_dirs_tcpaug_tcub, 'exp-tcpaug-tcub', 100000, smooth_window=5, zh=True)
 print(df_runs_max)
 print(df_runs_mean)
 
@@ -526,7 +591,8 @@ log_dirs_tcpaug_safesurf = [
     './safesurf2025/logs/2-exps_tcp_augmentation/safesurf2025-usevp-simnagle-nomf-seq30/train-8000',
     './safesurf2025/logs/2-exps_tcp_augmentation/safesurf2025-usevp-simshift-nomf-seq30/train-57000',
 ]
-df_runs_max, df_runs_mean = plot_tcpaug(log_dirs_tcpaug_safesurf, 'exp-tcpaug-safesurf2025', 100000, smooth_window=500)
+df_runs_max, df_runs_mean = plot_tcpaug(log_dirs_tcpaug_safesurf, 'exp-tcpaug-safesurf2025', 100000, smooth_window=500, zh=False)
+plot_tcpaug(log_dirs_tcpaug_safesurf, 'exp-tcpaug-safesurf2025', 100000, smooth_window=500, zh=True)
 print(df_runs_max)
 print(df_runs_mean)
 
@@ -538,6 +604,7 @@ log_dirs_tcpaug_sc = [
     './sc/logs/2-exps_tcp_augmentation/sc-usevp-simnagle-nomf-seq30/train-38000',
     './sc/logs/2-exps_tcp_augmentation/sc-usevp-simshift-nomf-seq30/train-27000',
 ]
-df_runs_max, df_runs_mean = plot_tcpaug(log_dirs_tcpaug_sc, 'exp-tcpaug-sc', 100000, smooth_window=500)
+df_runs_max, df_runs_mean = plot_tcpaug(log_dirs_tcpaug_sc, 'exp-tcpaug-sc', 100000, smooth_window=500, zh=False)
+plot_tcpaug(log_dirs_tcpaug_sc, 'exp-tcpaug-sc', 100000, smooth_window=500, zh=True)
 print(df_runs_max)
 print(df_runs_mean)
